@@ -1,19 +1,11 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"math/rand"
 	"os"
 	"time"
-
-	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
-	"cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
-	"google.golang.org/api/option"
-	"google.golang.org/genproto/googleapis/api/metric"
-	"google.golang.org/genproto/googleapis/api/monitoredres"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func main() {
@@ -22,54 +14,27 @@ func main() {
 		log.Fatal("GOOGLE_CLOUD_PROJECT env var must be set")
 	}
 
-	ctx := context.Background()
-	client, err := monitoring.NewMetricClient(ctx, option.WithScopes("https://www.googleapis.com/auth/cloud-platform"))
-	if err != nil {
-		log.Fatalf("failed to create metric client: %v", err)
-	}
-	defer client.Close()
+	// Create two sample counters
+	counterA := NewCounterWithLabels("sample_counter_a", map[string]string{"env": "prod"})
+	counterB := NewCounterWithLabels("sample_counter_b", map[string]string{"env": "dev"})
 
-	metricType := "custom.googleapis.com/sample_counter"
-	resourceType := "global"
+	// Create MetricsEmitter and add counters
+	emitter := NewMetricsEmitter()
+	emitter.AddCounter(counterA)
+	emitter.AddCounter(counterB)
 
 	for {
-		now := time.Now()
-		value := rand.Int63n(100)
+		// Simulate incrementing counters
+		counterA.Add(rand.Int63n(100))
+		counterB.Add(rand.Int63n(50))
 
-		req := &monitoringpb.CreateTimeSeriesRequest{
-			Name: "projects/" + projectID,
-			TimeSeries: []*monitoringpb.TimeSeries{
-				{
-					Metric: &metric.Metric{
-						Type: metricType,
-					},
-					Resource: &monitoredres.MonitoredResource{
-						Type: resourceType,
-						Labels: map[string]string{
-							"project_id": projectID,
-						},
-					},
-					Points: []*monitoringpb.Point{
-						{
-							Interval: &monitoringpb.TimeInterval{
-								EndTime: timestamppb.New(now),
-							},
-							Value: &monitoringpb.TypedValue{
-								Value: &monitoringpb.TypedValue_Int64Value{
-									Int64Value: value,
-								},
-							},
-						},
-					},
-				},
-			},
-		}
+		// Emit all counters to GCP Cloud Monitoring
+		emitter.Emit()
 
-		if err := client.CreateTimeSeries(ctx, req); err != nil {
-			log.Printf("failed to write time series data: %v", err)
-		} else {
-			fmt.Printf("Published value %d at %s\n", value, now.Format(time.RFC3339))
-		}
+		fmt.Printf("Emitted counters: %s=%d, %s=%d\n",
+			counterA.Name, counterA.Value(),
+			counterB.Name, counterB.Value(),
+		)
 
 		time.Sleep(10 * time.Second)
 	}
