@@ -17,15 +17,15 @@ func main() {
 		log.Fatal("GOOGLE_CLOUD_PROJECT env var must be set")
 	}
 
-	hostname, err := GetInstanceIdOrHostname()
+	instance, err := GetInstanceIdOrHostname()
 	if err != nil {
-		log.Fatalf("failed to get hostname: %v", err)
+		log.Fatalf("failed to get instance: %v", err)
 	}
 
-	log.Printf("Using hostname: %s", hostname)
+	log.Printf("Using instance: %s", instance)
 
 	commonLabels := map[string]string{
-		"hostname": hostname,
+		"instance": instance,
 	}
 
 	// Create the GCP Monitoring client
