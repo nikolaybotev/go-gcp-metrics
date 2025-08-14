@@ -14,12 +14,23 @@ func main() {
 		log.Fatal("GOOGLE_CLOUD_PROJECT env var must be set")
 	}
 
+	hostname, err := GetInstanceIdOrHostname()
+	if err != nil {
+		log.Fatalf("failed to get hostname: %v", err)
+	}
+
+	log.Printf("Using hostname: %s", hostname)
+
+	commonLabels := map[string]string{
+		"hostname": hostname,
+	}
+
 	// Create two sample counters
 	counterA := NewCounterWithLabels("sample_counter_a", map[string]string{"env": "prod"})
 	counterB := NewCounterWithLabels("sample_counter_b", map[string]string{"env": "dev"})
 
 	// Create MetricsEmitter and add counters
-	emitter := NewMetricsEmitter(projectID, "")
+	emitter := NewMetricsEmitter(projectID, "", commonLabels)
 	emitter.AddCounter(counterA)
 	emitter.AddCounter(counterB)
 

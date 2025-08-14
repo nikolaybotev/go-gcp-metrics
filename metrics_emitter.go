@@ -17,13 +17,15 @@ import (
 type MetricsEmitter struct {
 	ProjectID         string
 	MetricsNamePrefix string
+	CommonLabels      map[string]string
 	Counters          []*Counter
 }
 
-func NewMetricsEmitter(projectID string, metricsNamePrefix string) *MetricsEmitter {
+func NewMetricsEmitter(projectID string, metricsNamePrefix string, commonLabels map[string]string) *MetricsEmitter {
 	return &MetricsEmitter{
 		ProjectID:         projectID,
 		MetricsNamePrefix: metricsNamePrefix,
+		CommonLabels:      commonLabels,
 		Counters:          []*Counter{},
 	}
 }
@@ -52,6 +54,15 @@ func (me *MetricsEmitter) Emit() {
 		now := time.Now()
 		value := counter.Value()
 
+		// Merge common labels and counter labels
+		labels := make(map[string]string)
+		for k, v := range me.CommonLabels {
+			labels[k] = v
+		}
+		for k, v := range counter.Labels {
+			labels[k] = v
+		}
+
 		metricType := "custom.googleapis.com/" + me.MetricsNamePrefix + counter.Name
 
 		req := &monitoringpb.CreateTimeSeriesRequest{
@@ -60,7 +71,7 @@ func (me *MetricsEmitter) Emit() {
 				{
 					Metric: &metric.Metric{
 						Type:   metricType,
-						Labels: counter.Labels,
+						Labels: labels,
 					},
 					Resource: &monitoredres.MonitoredResource{
 						Type: resourceType,
