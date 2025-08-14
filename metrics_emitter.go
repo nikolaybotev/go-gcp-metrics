@@ -15,14 +15,16 @@ import (
 )
 
 type MetricsEmitter struct {
-	ProjectID string
-	Counters  []*Counter
+	ProjectID         string
+	MetricsNamePrefix string
+	Counters          []*Counter
 }
 
-func NewMetricsEmitter(projectID string) *MetricsEmitter {
+func NewMetricsEmitter(projectID string, metricsNamePrefix string) *MetricsEmitter {
 	return &MetricsEmitter{
-		ProjectID: projectID,
-		Counters:  []*Counter{},
+		ProjectID:         projectID,
+		MetricsNamePrefix: metricsNamePrefix,
+		Counters:          []*Counter{},
 	}
 }
 
@@ -50,12 +52,14 @@ func (me *MetricsEmitter) Emit() {
 		now := time.Now()
 		value := counter.Value()
 
+		metricType := "custom.googleapis.com/" + me.MetricsNamePrefix + counter.Name
+
 		req := &monitoringpb.CreateTimeSeriesRequest{
 			Name: "projects/" + me.ProjectID,
 			TimeSeries: []*monitoringpb.TimeSeries{
 				{
 					Metric: &metric.Metric{
-						Type:   "custom.googleapis.com/" + counter.Name,
+						Type:   metricType,
 						Labels: counter.Labels,
 					},
 					Resource: &monitoredres.MonitoredResource{
