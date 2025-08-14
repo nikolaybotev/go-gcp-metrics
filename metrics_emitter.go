@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
@@ -16,12 +15,14 @@ import (
 )
 
 type MetricsEmitter struct {
-	Counters []*Counter
+	ProjectID string
+	Counters  []*Counter
 }
 
-func NewMetricsEmitter() *MetricsEmitter {
+func NewMetricsEmitter(projectID string) *MetricsEmitter {
 	return &MetricsEmitter{
-		Counters: []*Counter{},
+		ProjectID: projectID,
+		Counters:  []*Counter{},
 	}
 }
 
@@ -30,9 +31,8 @@ func (me *MetricsEmitter) AddCounter(counter *Counter) {
 }
 
 func (me *MetricsEmitter) Emit() {
-	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
-	if projectID == "" {
-		log.Println("GOOGLE_CLOUD_PROJECT env var must be set")
+	if me.ProjectID == "" {
+		log.Println("ProjectID must be set in MetricsEmitter")
 		return
 	}
 
@@ -51,7 +51,7 @@ func (me *MetricsEmitter) Emit() {
 		value := counter.Value()
 
 		req := &monitoringpb.CreateTimeSeriesRequest{
-			Name: "projects/" + projectID,
+			Name: "projects/" + me.ProjectID,
 			TimeSeries: []*monitoringpb.TimeSeries{
 				{
 					Metric: &metric.Metric{
@@ -61,7 +61,7 @@ func (me *MetricsEmitter) Emit() {
 					Resource: &monitoredres.MonitoredResource{
 						Type: resourceType,
 						Labels: map[string]string{
-							"project_id": projectID,
+							"project_id": me.ProjectID,
 						},
 					},
 					Points: []*monitoringpb.Point{

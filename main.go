@@ -19,7 +19,7 @@ func main() {
 	counterB := NewCounterWithLabels("sample_counter_b", map[string]string{"env": "dev"})
 
 	// Create MetricsEmitter and add counters
-	emitter := NewMetricsEmitter()
+	emitter := NewMetricsEmitter(projectID)
 	emitter.AddCounter(counterA)
 	emitter.AddCounter(counterB)
 
