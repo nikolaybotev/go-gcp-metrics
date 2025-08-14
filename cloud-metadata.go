@@ -5,14 +5,17 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 )
 
-func GetInstanceIdOrHostname() (string, error) {
-	// URL to access the instance metadata
+func GetInstanceName() (string, error) {
+	// URL to access the AWS instance ID
 	url := "http://169.254.169.254/latest/meta-data/instance-id"
 
 	// Make the HTTP GET request to fetch the instance ID
-	resp, err := http.Get(url)
+	client := http.Client{Timeout: 2 * time.Second}
+	defer client.CloseIdleConnections()
+	resp, err := client.Get(url)
 	if err == nil {
 		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusOK {
@@ -24,10 +27,10 @@ func GetInstanceIdOrHostname() (string, error) {
 		}
 	}
 
-	// If fetching the instance ID fails, get the hostname
+	// If fetching the AWS instance ID fails, get the hostname (matches the instance name on Google Cloud)
 	hostname, err := os.Hostname()
 	if err != nil {
-		return "", fmt.Errorf("failed to get hostname: %v", err)
+		return "undefined", fmt.Errorf("failed to get hostname: %v", err)
 	}
 	return hostname, nil
 }

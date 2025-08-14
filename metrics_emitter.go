@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"path"
 	"time"
 
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
@@ -15,7 +16,7 @@ import (
 )
 
 type MetricsEmitter struct {
-	client            *monitoring.MetricClient
+	Client            *monitoring.MetricClient
 	ProjectID         string
 	MetricsNamePrefix string
 	CommonLabels      map[string]string
@@ -30,12 +31,12 @@ func NewMetricsEmitter(
 	commonLabels map[string]string,
 ) *MetricsEmitter {
 	return &MetricsEmitter{
-		client:            client,
+		Client:            client,
 		ProjectID:         projectID,
 		MetricsNamePrefix: metricsNamePrefix,
 		CommonLabels:      commonLabels,
 		Counters:          []*Counter{},
-		Distributions:     []*Distribution{}, // <-- Added
+		Distributions:     []*Distribution{},
 	}
 }
 
@@ -55,7 +56,13 @@ func (me *MetricsEmitter) AddDistribution(dist *Distribution) {
 }
 
 // Distribution creates a new Distribution, adds it to the emitter, and returns it.
-func (me *MetricsEmitter) Distribution(name, unit string, step, numBuckets int, labels map[string]string) *Distribution {
+func (me *MetricsEmitter) Distribution(
+	name,
+	unit string,
+	step,
+	numBuckets int,
+	labels map[string]string,
+) *Distribution {
 	dist := NewDistribution(name, unit, step, numBuckets, labels)
 	me.AddDistribution(dist)
 	return dist
@@ -66,7 +73,7 @@ func (me *MetricsEmitter) Emit() {
 		log.Println("ProjectID must be set in MetricsEmitter")
 		return
 	}
-	if me.client == nil {
+	if me.Client == nil {
 		log.Println("Metric client is not initialized")
 		return
 	}
@@ -91,7 +98,7 @@ func (me *MetricsEmitter) Emit() {
 			labels[k] = v
 		}
 
-		metricType := "custom.googleapis.com/" + me.MetricsNamePrefix + counter.Name
+		metricType := "custom.googleapis.com/" + path.Join(me.MetricsNamePrefix, counter.Name)
 
 		ts := &monitoringpb.TimeSeries{
 			Metric: &metric.Metric{
@@ -132,7 +139,7 @@ func (me *MetricsEmitter) Emit() {
 			labels[k] = v
 		}
 
-		metricType := "custom.googleapis.com/" + me.MetricsNamePrefix + dist.Name
+		metricType := "custom.googleapis.com/" + path.Join(me.MetricsNamePrefix, dist.Name)
 
 		// Prepare bucket bounds
 		bucketBounds := make([]float64, dist.NumBuckets+1)
@@ -189,7 +196,7 @@ func (me *MetricsEmitter) Emit() {
 		TimeSeries: timeSeriesList,
 	}
 
-	if err := me.client.CreateTimeSeries(ctx, req); err != nil {
+	if err := me.Client.CreateTimeSeries(ctx, req); err != nil {
 		log.Printf("failed to write time series data: %v", err)
 	} else {
 		for _, counter := range me.Counters {
