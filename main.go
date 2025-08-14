@@ -59,9 +59,11 @@ func main() {
 		)
 
 		// Update distributions with random values
-		for range 1_000 {
+		for range 100_000 {
 			go func() {
 				distributionA.Update(rand.Int63n(100))
+			}()
+			go func() {
 				distributionB.Update(rand.Int63n(250))
 			}()
 		}
