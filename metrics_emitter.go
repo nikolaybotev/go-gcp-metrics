@@ -122,3 +122,14 @@ func (me *MetricsEmitter) Emit() {
 		}
 	}
 }
+
+// EmitEvery schedules Emit to run at the given interval in a new goroutine.
+func (me *MetricsEmitter) EmitEvery(interval time.Duration) *time.Ticker {
+	ticker := time.NewTicker(interval)
+	go func() {
+		for range ticker.C {
+			me.Emit()
+		}
+	}()
+	return ticker
+}

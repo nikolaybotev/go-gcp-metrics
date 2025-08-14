@@ -41,19 +41,22 @@ func main() {
 	counterA := emitter.Counter("sample_counter_a", map[string]string{"env": "prod"})
 	counterB := emitter.Counter("sample_counter_b", map[string]string{"env": "dev"})
 
+	// Emit counters every 10 seconds
+	ticker := emitter.EmitEvery(10 * time.Second)
+	defer ticker.Stop()
+
+	log.Println("Starting metrics emission...")
+
 	for {
 		// Simulate incrementing counters
 		counterA.Add(rand.Int63n(100))
 		counterB.Add(rand.Int63n(50))
 
-		// Emit all counters to GCP Cloud Monitoring
-		emitter.Emit()
-
-		fmt.Printf("Emitted counters: %s=%d, %s=%d\n",
+		fmt.Printf("Updated counters: %s=%d, %s=%d\n",
 			counterA.Name, counterA.Value(),
 			counterB.Name, counterB.Value(),
 		)
 
-		time.Sleep(10 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 }
