@@ -1,6 +1,6 @@
 module nikolaybotev.com/go-gcp-metrics
 
-go 1.20
+go 1.23.0
 
 require (
 	cloud.google.com/go/monitoring v1.20.4
@@ -25,7 +25,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
 	golang.org/x/crypto v0.25.0 // indirect
 	golang.org/x/net v0.27.0 // indirect
-	golang.org/x/oauth2 v0.22.0 // indirect
+	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.22.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
