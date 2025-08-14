@@ -40,6 +40,12 @@ func (me *MetricsEmitter) AddCounter(counter *Counter) {
 	me.Counters = append(me.Counters, counter)
 }
 
+func (me *MetricsEmitter) Counter(name string, labels map[string]string) *Counter {
+	counter := NewCounterWithLabels(name, labels)
+	me.AddCounter(counter)
+	return counter
+}
+
 func (me *MetricsEmitter) Emit() {
 	if me.ProjectID == "" {
 		log.Println("ProjectID must be set in MetricsEmitter")

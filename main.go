@@ -36,14 +36,10 @@ func main() {
 	}
 	defer client.Close()
 
-	// Create two sample counters
-	counterA := NewCounterWithLabels("sample_counter_a", map[string]string{"env": "prod"})
-	counterB := NewCounterWithLabels("sample_counter_b", map[string]string{"env": "dev"})
-
 	// Create MetricsEmitter and add counters
 	emitter := NewMetricsEmitter(client, projectID, "", commonLabels)
-	emitter.AddCounter(counterA)
-	emitter.AddCounter(counterB)
+	counterA := emitter.Counter("sample_counter_a", map[string]string{"env": "prod"})
+	counterB := emitter.Counter("sample_counter_b", map[string]string{"env": "dev"})
 
 	for {
 		// Simulate incrementing counters
