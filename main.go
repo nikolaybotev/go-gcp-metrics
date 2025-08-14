@@ -12,18 +12,18 @@ import (
 )
 
 func main() {
+	// Get the project ID from environment variable
 	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
 	if projectID == "" {
 		log.Fatal("GOOGLE_CLOUD_PROJECT env var must be set")
 	}
 
+	// Get the instance ID or hostname to use as a label
 	instance, err := GetInstanceIdOrHostname()
 	if err != nil {
 		log.Fatalf("failed to get instance: %v", err)
 	}
-
 	log.Printf("Using instance: %s", instance)
-
 	commonLabels := map[string]string{
 		"instance": instance,
 	}
@@ -45,10 +45,9 @@ func main() {
 	ticker := emitter.EmitEvery(10 * time.Second)
 	defer ticker.Stop()
 
+	// Simulate some work and increment counters
 	log.Println("Starting metrics emission...")
-
 	for {
-		// Simulate incrementing counters
 		counterA.Add(rand.Int63n(100))
 		counterB.Add(rand.Int63n(50))
 
