@@ -49,9 +49,11 @@ func (me *MetricsEmitter) Emit() {
 	defer client.Close()
 
 	resourceType := "global"
+	now := time.Now()
+
+	var timeSeriesList []*monitoringpb.TimeSeries
 
 	for _, counter := range me.Counters {
-		now := time.Now()
 		value := counter.Value()
 
 		// Merge common labels and counter labels
@@ -65,40 +67,48 @@ func (me *MetricsEmitter) Emit() {
 
 		metricType := "custom.googleapis.com/" + me.MetricsNamePrefix + counter.Name
 
-		req := &monitoringpb.CreateTimeSeriesRequest{
-			Name: "projects/" + me.ProjectID,
-			TimeSeries: []*monitoringpb.TimeSeries{
+		ts := &monitoringpb.TimeSeries{
+			Metric: &metric.Metric{
+				Type:   metricType,
+				Labels: labels,
+			},
+			Resource: &monitoredres.MonitoredResource{
+				Type: resourceType,
+				Labels: map[string]string{
+					"project_id": me.ProjectID,
+				},
+			},
+			Points: []*monitoringpb.Point{
 				{
-					Metric: &metric.Metric{
-						Type:   metricType,
-						Labels: labels,
+					Interval: &monitoringpb.TimeInterval{
+						EndTime: timestamppb.New(now),
 					},
-					Resource: &monitoredres.MonitoredResource{
-						Type: resourceType,
-						Labels: map[string]string{
-							"project_id": me.ProjectID,
-						},
-					},
-					Points: []*monitoringpb.Point{
-						{
-							Interval: &monitoringpb.TimeInterval{
-								EndTime: timestamppb.New(now),
-							},
-							Value: &monitoringpb.TypedValue{
-								Value: &monitoringpb.TypedValue_Int64Value{
-									Int64Value: value,
-								},
-							},
+					Value: &monitoringpb.TypedValue{
+						Value: &monitoringpb.TypedValue_Int64Value{
+							Int64Value: value,
 						},
 					},
 				},
 			},
 		}
 
-		if err := client.CreateTimeSeries(ctx, req); err != nil {
-			log.Printf("failed to write time series data for %s: %v", counter.Name, err)
-		} else {
-			fmt.Printf("Published counter %s value %d at %s\n", counter.Name, value, now.Format(time.RFC3339))
+		timeSeriesList = append(timeSeriesList, ts)
+	}
+
+	if len(timeSeriesList) == 0 {
+		return
+	}
+
+	req := &monitoringpb.CreateTimeSeriesRequest{
+		Name:       "projects/" + me.ProjectID,
+		TimeSeries: timeSeriesList,
+	}
+
+	if err := client.CreateTimeSeries(ctx, req); err != nil {
+		log.Printf("failed to write time series data: %v", err)
+	} else {
+		for _, counter := range me.Counters {
+			fmt.Printf("Published counter %s value %d at %s\n", counter.Name, counter.Value(), now.Format(time.RFC3339))
 		}
 	}
 }
