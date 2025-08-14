@@ -79,3 +79,19 @@ func (d *Distribution) GetAndClear() *DistributionBuckets {
 func (d *Distribution) bucketForValue(value int64) int {
 	return int(min(max(0, (value-d.Offset+d.Step)/d.Step), int64(d.NumBuckets+1)))
 }
+
+// min and max functions to handle int64 values (they are built-in in Go only since 1.21)
+
+func min(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b int64) int64 {
+	if a > b {
+		return a
+	}
+	return b
+}
