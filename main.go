@@ -19,10 +19,7 @@ func main() {
 	}
 
 	// Get the instance ID or hostname to use as a label
-	instance, err := GetInstanceName()
-	if err != nil {
-		log.Fatalf("failed to get instance: %v", err)
-	}
+	instance := GetInstanceName()
 	log.Printf("Using instance: %s", instance)
 	commonLabels := map[string]string{
 		"instance": instance,
