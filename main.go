@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math/rand"
 	"os"
 	"time"
+
+	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
 )
 
 func main() {
@@ -25,12 +28,20 @@ func main() {
 		"hostname": hostname,
 	}
 
+	// Create the GCP Monitoring client
+	ctx := context.Background()
+	client, err := monitoring.NewMetricClient(ctx)
+	if err != nil {
+		log.Fatalf("failed to create metric client: %v", err)
+	}
+	defer client.Close()
+
 	// Create two sample counters
 	counterA := NewCounterWithLabels("sample_counter_a", map[string]string{"env": "prod"})
 	counterB := NewCounterWithLabels("sample_counter_b", map[string]string{"env": "dev"})
 
 	// Create MetricsEmitter and add counters
-	emitter := NewMetricsEmitter(projectID, "", commonLabels)
+	emitter := NewMetricsEmitter(client, projectID, "", commonLabels)
 	emitter.AddCounter(counterA)
 	emitter.AddCounter(counterB)
 

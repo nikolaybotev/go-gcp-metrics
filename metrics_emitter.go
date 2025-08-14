@@ -8,21 +8,27 @@ import (
 
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
 	"cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
-	"google.golang.org/api/option"
 	"google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type MetricsEmitter struct {
+	client            *monitoring.MetricClient
 	ProjectID         string
 	MetricsNamePrefix string
 	CommonLabels      map[string]string
 	Counters          []*Counter
 }
 
-func NewMetricsEmitter(projectID string, metricsNamePrefix string, commonLabels map[string]string) *MetricsEmitter {
+func NewMetricsEmitter(
+	client *monitoring.MetricClient,
+	projectID string,
+	metricsNamePrefix string,
+	commonLabels map[string]string,
+) *MetricsEmitter {
 	return &MetricsEmitter{
+		client:            client,
 		ProjectID:         projectID,
 		MetricsNamePrefix: metricsNamePrefix,
 		CommonLabels:      commonLabels,
@@ -39,14 +45,12 @@ func (me *MetricsEmitter) Emit() {
 		log.Println("ProjectID must be set in MetricsEmitter")
 		return
 	}
-
-	ctx := context.Background()
-	client, err := monitoring.NewMetricClient(ctx, option.WithScopes("https://www.googleapis.com/auth/cloud-platform"))
-	if err != nil {
-		log.Printf("failed to create metric client: %v", err)
+	if me.client == nil {
+		log.Println("Metric client is not initialized")
 		return
 	}
-	defer client.Close()
+
+	ctx := context.Background()
 
 	resourceType := "global"
 	now := time.Now()
@@ -104,7 +108,7 @@ func (me *MetricsEmitter) Emit() {
 		TimeSeries: timeSeriesList,
 	}
 
-	if err := client.CreateTimeSeries(ctx, req); err != nil {
+	if err := me.client.CreateTimeSeries(ctx, req); err != nil {
 		log.Printf("failed to write time series data: %v", err)
 	} else {
 		for _, counter := range me.Counters {
