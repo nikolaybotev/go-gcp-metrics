@@ -8,6 +8,7 @@ import (
 
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
 	"cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
+	"google.golang.org/genproto/googleapis/api/distribution"
 	"google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -19,6 +20,7 @@ type MetricsEmitter struct {
 	MetricsNamePrefix string
 	CommonLabels      map[string]string
 	Counters          []*Counter
+	Distributions     []*Distribution
 }
 
 func NewMetricsEmitter(
@@ -33,6 +35,7 @@ func NewMetricsEmitter(
 		MetricsNamePrefix: metricsNamePrefix,
 		CommonLabels:      commonLabels,
 		Counters:          []*Counter{},
+		Distributions:     []*Distribution{}, // <-- Added
 	}
 }
 
@@ -44,6 +47,18 @@ func (me *MetricsEmitter) Counter(name string, labels map[string]string) *Counte
 	counter := NewCounterWithLabels(name, labels)
 	me.AddCounter(counter)
 	return counter
+}
+
+// AddDistribution adds a Distribution to the emitter.
+func (me *MetricsEmitter) AddDistribution(dist *Distribution) {
+	me.Distributions = append(me.Distributions, dist)
+}
+
+// Distribution creates a new Distribution, adds it to the emitter, and returns it.
+func (me *MetricsEmitter) Distribution(name, unit string, step, numBuckets int, labels map[string]string) *Distribution {
+	dist := NewDistribution(name, unit, step, numBuckets, labels)
+	me.AddDistribution(dist)
+	return dist
 }
 
 func (me *MetricsEmitter) Emit() {
@@ -63,6 +78,7 @@ func (me *MetricsEmitter) Emit() {
 
 	var timeSeriesList []*monitoringpb.TimeSeries
 
+	// Emit counters
 	for _, counter := range me.Counters {
 		value := counter.Value()
 
@@ -105,6 +121,65 @@ func (me *MetricsEmitter) Emit() {
 		timeSeriesList = append(timeSeriesList, ts)
 	}
 
+	// Emit distributions
+	for _, dist := range me.Distributions {
+		// Merge common labels and distribution labels
+		labels := make(map[string]string)
+		for k, v := range me.CommonLabels {
+			labels[k] = v
+		}
+		for k, v := range dist.Labels {
+			labels[k] = v
+		}
+
+		metricType := "custom.googleapis.com/" + me.MetricsNamePrefix + dist.Name
+
+		// Prepare bucket bounds
+		bucketBounds := make([]float64, dist.NumBuckets+1)
+		for i := 0; i <= dist.NumBuckets; i++ {
+			bucketBounds[i] = float64(dist.Offset) + float64(dist.Step)*float64(i)
+		}
+
+		distBuckets := dist.GetAndClear()
+		ts := &monitoringpb.TimeSeries{
+			Metric: &metric.Metric{
+				Type:   metricType,
+				Labels: labels,
+			},
+			Resource: &monitoredres.MonitoredResource{
+				Type: resourceType,
+				Labels: map[string]string{
+					"project_id": me.ProjectID,
+				},
+			},
+			Points: []*monitoringpb.Point{
+				{
+					Interval: &monitoringpb.TimeInterval{
+						EndTime: timestamppb.New(now),
+					},
+					Value: &monitoringpb.TypedValue{
+						Value: &monitoringpb.TypedValue_DistributionValue{
+							DistributionValue: &distribution.Distribution{
+								Count:                 distBuckets.NumSamples,
+								Mean:                  distBuckets.Mean,
+								SumOfSquaredDeviation: distBuckets.SumOfSquaredDeviation,
+								BucketOptions: &distribution.Distribution_BucketOptions{
+									Options: &distribution.Distribution_BucketOptions_ExplicitBuckets{
+										ExplicitBuckets: &distribution.Distribution_BucketOptions_Explicit{
+											Bounds: bucketBounds,
+										},
+									},
+								},
+								BucketCounts: distBuckets.Buckets,
+							},
+						},
+					},
+				},
+			},
+		}
+		timeSeriesList = append(timeSeriesList, ts)
+	}
+
 	if len(timeSeriesList) == 0 {
 		return
 	}
@@ -119,6 +194,9 @@ func (me *MetricsEmitter) Emit() {
 	} else {
 		for _, counter := range me.Counters {
 			fmt.Printf("Published counter %s value %d at %s\n", counter.Name, counter.Value(), now.Format(time.RFC3339))
+		}
+		for _, dist := range me.Distributions {
+			fmt.Printf("Published distribution %s at %s\n", dist.Name, now.Format(time.RFC3339))
 		}
 	}
 }

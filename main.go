@@ -36,10 +36,12 @@ func main() {
 	}
 	defer client.Close()
 
-	// Create MetricsEmitter and add counters
-	emitter := NewMetricsEmitter(client, projectID, "", commonLabels)
+	// Create MetricsEmitter and add counters and distributions
+	emitter := NewMetricsEmitter(client, projectID, "go/", commonLabels)
 	counterA := emitter.Counter("sample_counter_a", map[string]string{"env": "prod"})
 	counterB := emitter.Counter("sample_counter_b", map[string]string{"env": "dev"})
+	distributionA := emitter.Distribution("sample_distribution_a", "ms", 100, 1, map[string]string{"env": "prod"})
+	distributionB := emitter.Distribution("sample_distribution_b", "ms", 50, 5, map[string]string{"env": "dev"})
 
 	// Emit counters every 10 seconds
 	ticker := emitter.EmitEvery(10 * time.Second)
@@ -55,6 +57,14 @@ func main() {
 			counterA.Name, counterA.Value(),
 			counterB.Name, counterB.Value(),
 		)
+
+		// Update distributions with random values
+		for range 1_000 {
+			go func() {
+				distributionA.Update(rand.Int63n(100))
+				distributionB.Update(rand.Int63n(250))
+			}()
+		}
 
 		time.Sleep(1 * time.Second)
 	}
