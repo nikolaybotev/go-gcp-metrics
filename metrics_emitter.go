@@ -22,6 +22,7 @@ type MetricsEmitter struct {
 	CommonLabels      map[string]string
 	Counters          []*Counter
 	Distributions     []*Distribution
+	Gauges            []*Gauge
 }
 
 func NewMetricsEmitter(
@@ -37,13 +38,16 @@ func NewMetricsEmitter(
 		CommonLabels:      commonLabels,
 		Counters:          []*Counter{},
 		Distributions:     []*Distribution{},
+		Gauges:            []*Gauge{},
 	}
 }
 
+// AddCounter addds a Counter to the emitter.
 func (me *MetricsEmitter) AddCounter(counter *Counter) {
 	me.Counters = append(me.Counters, counter)
 }
 
+// Counter creates a new Counter, adds it to the emitter, and returns it.
 func (me *MetricsEmitter) Counter(name string, labels map[string]string) *Counter {
 	counter := NewCounterWithLabels(name, labels)
 	me.AddCounter(counter)
@@ -66,6 +70,18 @@ func (me *MetricsEmitter) Distribution(
 	dist := NewDistribution(name, unit, step, numBuckets, labels)
 	me.AddDistribution(dist)
 	return dist
+}
+
+// AddGauge adds a Gauge to the emitter.
+func (me *MetricsEmitter) AddGauge(g *Gauge) {
+	me.Gauges = append(me.Gauges, g)
+}
+
+// Gauge creates a new Gauge, adds it to the emitter, and returns it.
+func (me *MetricsEmitter) Gauge(name string, labels map[string]string) *Gauge {
+	g := NewGauge(name, labels)
+	me.AddGauge(g)
+	return g
 }
 
 func (me *MetricsEmitter) Emit() {
@@ -99,6 +115,49 @@ func (me *MetricsEmitter) Emit() {
 		}
 
 		metricType := "custom.googleapis.com/" + path.Join(me.MetricsNamePrefix, counter.Name)
+
+		ts := &monitoringpb.TimeSeries{
+			Metric: &metric.Metric{
+				Type:   metricType,
+				Labels: labels,
+			},
+			Resource: &monitoredres.MonitoredResource{
+				Type: resourceType,
+				Labels: map[string]string{
+					"project_id": me.ProjectID,
+				},
+			},
+			Points: []*monitoringpb.Point{
+				{
+					Interval: &monitoringpb.TimeInterval{
+						EndTime: timestamppb.New(now),
+					},
+					Value: &monitoringpb.TypedValue{
+						Value: &monitoringpb.TypedValue_Int64Value{
+							Int64Value: value,
+						},
+					},
+				},
+			},
+		}
+
+		timeSeriesList = append(timeSeriesList, ts)
+	}
+
+	// Emit gauges
+	for _, gauge := range me.Gauges {
+		value := gauge.Value()
+
+		// Merge common labels and gauge labels
+		labels := make(map[string]string)
+		for k, v := range me.CommonLabels {
+			labels[k] = v
+		}
+		for k, v := range gauge.Labels {
+			labels[k] = v
+		}
+
+		metricType := "custom.googleapis.com/" + path.Join(me.MetricsNamePrefix, gauge.Name)
 
 		ts := &monitoringpb.TimeSeries{
 			Metric: &metric.Metric{
@@ -201,6 +260,9 @@ func (me *MetricsEmitter) Emit() {
 	} else {
 		for _, counter := range me.Counters {
 			fmt.Printf("Published counter %s value %d at %s\n", counter.Name, counter.Value(), now.Format(time.RFC3339))
+		}
+		for _, gauge := range me.Gauges {
+			fmt.Printf("Published gauge %s value %d at %s\n", gauge.Name, gauge.Value(), now.Format(time.RFC3339))
 		}
 		for _, dist := range me.Distributions {
 			fmt.Printf("Published distribution %s at %s\n", dist.Name, now.Format(time.RFC3339))

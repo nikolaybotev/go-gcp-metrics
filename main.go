@@ -33,18 +33,20 @@ func main() {
 	}
 	defer client.Close()
 
-	// Create MetricsEmitter and add counters and distributions
+	// Create MetricsEmitter and add counters, distributions, and gauges
 	emitter := NewMetricsEmitter(client, projectID, "go/", commonLabels)
 	counterA := emitter.Counter("sample_counter_a", map[string]string{"env": "prod"})
 	counterB := emitter.Counter("sample_counter_b", map[string]string{"env": "dev"})
 	distributionA := emitter.Distribution("sample_distribution_a", "ms", 100, 1, map[string]string{"env": "prod"})
 	distributionB := emitter.Distribution("sample_distribution_b", "ms", 50, 5, map[string]string{"env": "dev"})
+	gaugeA := emitter.Gauge("sample_gauge_a", map[string]string{"env": "prod"})
+	gaugeB := emitter.Gauge("sample_gauge_b", map[string]string{"env": "dev"})
 
 	// Emit counters every 10 seconds
 	ticker := emitter.EmitEvery(10 * time.Second)
 	defer ticker.Stop()
 
-	// Simulate some work and increment counters
+	// Simulate some work and increment counters and gauge
 	log.Println("Starting metrics emission...")
 	for {
 		counterA.Add(rand.Int63n(100))
@@ -53,6 +55,15 @@ func main() {
 		fmt.Printf("Updated counters: %s=%d, %s=%d\n",
 			counterA.Name, counterA.Value(),
 			counterB.Name, counterB.Value(),
+		)
+
+		// Set gauge to a random value
+		gaugeA.Set(rand.Int63n(1000))
+		gaugeB.Set(rand.Int63n(1000))
+
+		fmt.Printf("Updated gauges: %s=%d, %s=%d\n",
+			gaugeA.Name, gaugeA.Value(),
+			gaugeB.Name, gaugeB.Value(),
 		)
 
 		// Update distributions with random values
