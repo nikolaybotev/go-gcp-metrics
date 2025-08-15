@@ -55,7 +55,7 @@ func main() {
 	})
 
 	// Emit counters every 10 seconds
-	ticker := emitter.EmitEvery(10 * time.Second)
+	ticker := emitter.EmitEvery(ctx, 10*time.Second)
 	defer ticker.Stop()
 
 	// Simulate some work and increment counters and gauge

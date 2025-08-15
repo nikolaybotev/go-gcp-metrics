@@ -90,7 +90,7 @@ func (me *MetricsEmitter) AddBeforeEmitListener(listener func()) {
 	me.BeforeEmitListeners = append(me.BeforeEmitListeners, listener)
 }
 
-func (me *MetricsEmitter) Emit() {
+func (me *MetricsEmitter) Emit(ctx context.Context) {
 	if me.ProjectID == "" {
 		log.Println("ProjectID must be set in MetricsEmitter")
 		return
@@ -99,8 +99,6 @@ func (me *MetricsEmitter) Emit() {
 		log.Println("Metric client is not initialized")
 		return
 	}
-
-	ctx := context.Background()
 
 	resourceType := "global"
 	now := time.Now()
@@ -277,19 +275,24 @@ func (me *MetricsEmitter) Emit() {
 }
 
 // EmitEvery schedules Emit to run at the given interval in a new goroutine.
-func (me *MetricsEmitter) EmitEvery(interval time.Duration) *time.Ticker {
+func (me *MetricsEmitter) EmitEvery(ctx context.Context, interval time.Duration) *time.Ticker {
 	ticker := time.NewTicker(interval)
 	go func() {
-		for range ticker.C {
-			// Notify before emit listeners
-			for _, listener := range me.BeforeEmitListeners {
-				if listener != nil {
-					listener()
+		for {
+			select {
+			case <-ticker.C:
+				// Notify before emit listeners
+				for _, listener := range me.BeforeEmitListeners {
+					if listener != nil {
+						listener()
+					}
 				}
+				// Emit metrics
+				me.Emit(ctx)
+			case <-ctx.Done():
+				ticker.Stop()
+				return
 			}
-
-			// Emit metrics
-			me.Emit()
 		}
 	}()
 	return ticker
