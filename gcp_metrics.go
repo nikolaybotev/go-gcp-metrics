@@ -18,6 +18,7 @@ import (
 type GcpMetrics struct {
 	Client              *monitoring.MetricClient
 	ProjectID           string
+	MonitoredResource   *monitoredres.MonitoredResource
 	MetricsNamePrefix   string
 	CommonLabels        map[string]string
 	Counters            []*Counter
@@ -29,12 +30,14 @@ type GcpMetrics struct {
 func NewGcpMetrics(
 	client *monitoring.MetricClient,
 	projectID string,
+	monitoredResource *monitoredres.MonitoredResource,
 	metricsNamePrefix string,
 	commonLabels map[string]string,
 ) *GcpMetrics {
 	return &GcpMetrics{
 		Client:              client,
 		ProjectID:           projectID,
+		MonitoredResource:   monitoredResource,
 		MetricsNamePrefix:   metricsNamePrefix,
 		CommonLabels:        commonLabels,
 		Counters:            []*Counter{},
@@ -91,16 +94,19 @@ func (me *GcpMetrics) AddBeforeEmitListener(listener func()) {
 }
 
 func (me *GcpMetrics) Emit(ctx context.Context) {
+	if me.Client == nil {
+		log.Println("Client must be set in GcpMetrics")
+		return
+	}
 	if me.ProjectID == "" {
 		log.Println("ProjectID must be set in GcpMetrics")
 		return
 	}
-	if me.Client == nil {
-		log.Println("Metric client is not initialized")
+	if me.MonitoredResource == nil {
+		log.Println("MonitoredResource must be set in GcpMetrics")
 		return
 	}
 
-	resourceType := "global"
 	now := time.Now()
 
 	var timeSeriesList []*monitoringpb.TimeSeries
@@ -125,12 +131,7 @@ func (me *GcpMetrics) Emit(ctx context.Context) {
 				Type:   metricType,
 				Labels: labels,
 			},
-			Resource: &monitoredres.MonitoredResource{
-				Type: resourceType,
-				Labels: map[string]string{
-					"project_id": me.ProjectID,
-				},
-			},
+			Resource: me.MonitoredResource,
 			Points: []*monitoringpb.Point{
 				{
 					Interval: &monitoringpb.TimeInterval{
@@ -168,12 +169,7 @@ func (me *GcpMetrics) Emit(ctx context.Context) {
 				Type:   metricType,
 				Labels: labels,
 			},
-			Resource: &monitoredres.MonitoredResource{
-				Type: resourceType,
-				Labels: map[string]string{
-					"project_id": me.ProjectID,
-				},
-			},
+			Resource: me.MonitoredResource,
 			Points: []*monitoringpb.Point{
 				{
 					Interval: &monitoringpb.TimeInterval{
@@ -216,12 +212,7 @@ func (me *GcpMetrics) Emit(ctx context.Context) {
 				Type:   metricType,
 				Labels: labels,
 			},
-			Resource: &monitoredres.MonitoredResource{
-				Type: resourceType,
-				Labels: map[string]string{
-					"project_id": me.ProjectID,
-				},
-			},
+			Resource: me.MonitoredResource,
 			Points: []*monitoringpb.Point{
 				{
 					Interval: &monitoringpb.TimeInterval{

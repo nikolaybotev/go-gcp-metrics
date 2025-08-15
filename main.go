@@ -9,6 +9,7 @@ import (
 	"time"
 
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
+	"google.golang.org/genproto/googleapis/api/monitoredres"
 )
 
 func main() {
@@ -33,8 +34,16 @@ func main() {
 	}
 	defer client.Close()
 
+	// Create the MonitoredResource instance
+	resource := &monitoredres.MonitoredResource{
+		Type: "global",
+		Labels: map[string]string{
+			"project_id": projectID,
+		},
+	}
+
 	// Create GcpMetrics and add counters, distributions, and gauges
-	metrics := NewGcpMetrics(client, projectID, "go/", commonLabels)
+	metrics := NewGcpMetrics(client, projectID, resource, "go/", commonLabels)
 	counterA := metrics.Counter("sample_counter_a", map[string]string{"env": "prod"})
 	counterB := metrics.Counter("sample_counter_b", map[string]string{"env": "dev"})
 	distributionA := metrics.Distribution("sample_distribution_a", "ms", 100, 1, map[string]string{"env": "prod"})
