@@ -54,9 +54,21 @@ func (me *GcpMetrics) AddCounter(counter *Counter) {
 
 // Counter creates a new Counter, adds it to the metrics, and returns it.
 func (me *GcpMetrics) Counter(name string, labels map[string]string) *Counter {
-	counter := NewCounterWithLabels(name, labels)
+	counter := NewCounter(name, labels)
 	me.AddCounter(counter)
 	return counter
+}
+
+// AddGauge adds a Gauge to the metrics.
+func (me *GcpMetrics) AddGauge(g *Gauge) {
+	me.Gauges = append(me.Gauges, g)
+}
+
+// Gauge creates a new Gauge, adds it to the metrics, and returns it.
+func (me *GcpMetrics) Gauge(name string, labels map[string]string) *Gauge {
+	g := NewGauge(name, labels)
+	me.AddGauge(g)
+	return g
 }
 
 // AddDistribution adds a Distribution to the metrics.
@@ -75,18 +87,6 @@ func (me *GcpMetrics) Distribution(
 	dist := NewDistribution(name, unit, step, numBuckets, labels)
 	me.AddDistribution(dist)
 	return dist
-}
-
-// AddGauge adds a Gauge to the metrics.
-func (me *GcpMetrics) AddGauge(g *Gauge) {
-	me.Gauges = append(me.Gauges, g)
-}
-
-// Gauge creates a new Gauge, adds it to the metrics, and returns it.
-func (me *GcpMetrics) Gauge(name string, labels map[string]string) *Gauge {
-	g := NewGauge(name, labels)
-	me.AddGauge(g)
-	return g
 }
 
 func (me *GcpMetrics) AddBeforeEmitListener(listener func()) {

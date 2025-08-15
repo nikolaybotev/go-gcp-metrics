@@ -10,15 +10,7 @@ type Counter struct {
 	value  int64
 }
 
-// NewCounter creates a Counter with the given name and no labels.
-func NewCounter(name string) *Counter {
-	return &Counter{
-		Name:   name,
-		Labels: make(map[string]string),
-	}
-}
-
-func NewCounterWithLabels(name string, labels map[string]string) *Counter {
+func NewCounter(name string, labels map[string]string) *Counter {
 	return &Counter{
 		Name:   name,
 		Labels: labels,
