@@ -18,7 +18,7 @@ type Distribution struct {
 	Step       int64
 	NumBuckets int
 	Labels     map[string]string
-	state      DistributionBuckets
+	value      DistributionBuckets
 	mu         sync.Mutex
 }
 
@@ -30,7 +30,7 @@ func NewDistribution(name, unit string, step, numBuckets int, labels map[string]
 		Step:       int64(step),
 		NumBuckets: numBuckets,
 		Labels:     labels,
-		state: DistributionBuckets{
+		value: DistributionBuckets{
 			// Allocate numBuckets + 2 to account for underflow (bucket 0) and overflow (last bucket)
 			Buckets: make([]int64, numBuckets+2),
 		},
@@ -43,13 +43,13 @@ func (d *Distribution) Update(value int64) {
 
 	// Update bucket
 	bucket := d.bucketForValue(value)
-	d.state.Buckets[bucket] += 1
+	d.value.Buckets[bucket] += 1
 
 	// Update numSamples, mean and M2 using Welford's method for accumulating the sum of squared deviations.
-	d.state.NumSamples += 1
-	delta := float64(value) - d.state.Mean
-	d.state.Mean = d.state.Mean + (delta / float64(d.state.NumSamples))
-	d.state.SumOfSquaredDeviation = d.state.SumOfSquaredDeviation + delta*(float64(value)-d.state.Mean)
+	d.value.NumSamples += 1
+	delta := float64(value) - d.value.Mean
+	d.value.Mean = d.value.Mean + (delta / float64(d.value.NumSamples))
+	d.value.SumOfSquaredDeviation = d.value.SumOfSquaredDeviation + delta*(float64(value)-d.value.Mean)
 }
 
 func (d *Distribution) GetAndClear() *DistributionBuckets {
@@ -58,22 +58,31 @@ func (d *Distribution) GetAndClear() *DistributionBuckets {
 
 	// Make a copy
 	result := &DistributionBuckets{
-		Buckets:               make([]int64, len(d.state.Buckets)),
-		NumSamples:            d.state.NumSamples,
-		Mean:                  d.state.Mean,
-		SumOfSquaredDeviation: d.state.SumOfSquaredDeviation,
+		Buckets:               make([]int64, len(d.value.Buckets)),
+		NumSamples:            d.value.NumSamples,
+		Mean:                  d.value.Mean,
+		SumOfSquaredDeviation: d.value.SumOfSquaredDeviation,
 	}
-	copy(result.Buckets, d.state.Buckets)
+	copy(result.Buckets, d.value.Buckets)
 
 	// Clear
-	for i := range d.state.Buckets {
-		d.state.Buckets[i] = 0
+	for i := range d.value.Buckets {
+		d.value.Buckets[i] = 0
 	}
-	d.state.NumSamples = 0
-	d.state.Mean = 0
-	d.state.SumOfSquaredDeviation = 0
+	d.value.NumSamples = 0
+	d.value.Mean = 0
+	d.value.SumOfSquaredDeviation = 0
 
 	return result
+}
+
+// BucketBounds returns the bucket boundaries for this distribution.
+func (d *Distribution) BucketBounds() []float64 {
+	bucketBounds := make([]float64, d.NumBuckets+1)
+	for i := 0; i <= d.NumBuckets; i++ {
+		bucketBounds[i] = float64(d.Offset) + float64(d.Step)*float64(i)
+	}
+	return bucketBounds
 }
 
 func (d *Distribution) bucketForValue(value int64) int {

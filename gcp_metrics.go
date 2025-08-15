@@ -93,6 +93,26 @@ func (me *GcpMetrics) AddBeforeEmitListener(listener func()) {
 	me.BeforeEmitListeners = append(me.BeforeEmitListeners, listener)
 }
 
+// mergeLabels merges common labels with metric-specific labels.
+func (me *GcpMetrics) mergeLabels(specific map[string]string) map[string]string {
+	labels := make(map[string]string, len(me.CommonLabels)+len(specific))
+	for k, v := range me.CommonLabels {
+		labels[k] = v
+	}
+	for k, v := range specific {
+		labels[k] = v
+	}
+	return labels
+}
+
+// buildMetric constructs a metric.Metric with the correct type and merged labels.
+func (me *GcpMetrics) buildMetric(name string, specificLabels map[string]string) *metric.Metric {
+	return &metric.Metric{
+		Type:   "custom.googleapis.com/" + path.Join(me.MetricsNamePrefix, name),
+		Labels: me.mergeLabels(specificLabels),
+	}
+}
+
 func (me *GcpMetrics) Emit(ctx context.Context) {
 	if me.Client == nil {
 		log.Println("Client must be set in GcpMetrics")
@@ -108,6 +128,9 @@ func (me *GcpMetrics) Emit(ctx context.Context) {
 	}
 
 	now := time.Now()
+	interval := &monitoringpb.TimeInterval{
+		EndTime: timestamppb.New(now),
+	}
 
 	var timeSeriesList []*monitoringpb.TimeSeries
 
@@ -115,28 +138,12 @@ func (me *GcpMetrics) Emit(ctx context.Context) {
 	for _, counter := range me.Counters {
 		value := counter.Value()
 
-		// Merge common labels and counter labels
-		labels := make(map[string]string)
-		for k, v := range me.CommonLabels {
-			labels[k] = v
-		}
-		for k, v := range counter.Labels {
-			labels[k] = v
-		}
-
-		metricType := "custom.googleapis.com/" + path.Join(me.MetricsNamePrefix, counter.Name)
-
 		ts := &monitoringpb.TimeSeries{
-			Metric: &metric.Metric{
-				Type:   metricType,
-				Labels: labels,
-			},
+			Metric:   me.buildMetric(counter.Name, counter.Labels),
 			Resource: me.MonitoredResource,
 			Points: []*monitoringpb.Point{
 				{
-					Interval: &monitoringpb.TimeInterval{
-						EndTime: timestamppb.New(now),
-					},
+					Interval: interval,
 					Value: &monitoringpb.TypedValue{
 						Value: &monitoringpb.TypedValue_Int64Value{
 							Int64Value: value,
@@ -153,28 +160,12 @@ func (me *GcpMetrics) Emit(ctx context.Context) {
 	for _, gauge := range me.Gauges {
 		value := gauge.Value()
 
-		// Merge common labels and gauge labels
-		labels := make(map[string]string)
-		for k, v := range me.CommonLabels {
-			labels[k] = v
-		}
-		for k, v := range gauge.Labels {
-			labels[k] = v
-		}
-
-		metricType := "custom.googleapis.com/" + path.Join(me.MetricsNamePrefix, gauge.Name)
-
 		ts := &monitoringpb.TimeSeries{
-			Metric: &metric.Metric{
-				Type:   metricType,
-				Labels: labels,
-			},
+			Metric:   me.buildMetric(gauge.Name, gauge.Labels),
 			Resource: me.MonitoredResource,
 			Points: []*monitoringpb.Point{
 				{
-					Interval: &monitoringpb.TimeInterval{
-						EndTime: timestamppb.New(now),
-					},
+					Interval: interval,
 					Value: &monitoringpb.TypedValue{
 						Value: &monitoringpb.TypedValue_Int64Value{
 							Int64Value: value,
@@ -189,55 +180,35 @@ func (me *GcpMetrics) Emit(ctx context.Context) {
 
 	// Emit distributions
 	for _, dist := range me.Distributions {
-		// Merge common labels and distribution labels
-		labels := make(map[string]string)
-		for k, v := range me.CommonLabels {
-			labels[k] = v
-		}
-		for k, v := range dist.Labels {
-			labels[k] = v
-		}
+		value := dist.GetAndClear()
 
-		metricType := "custom.googleapis.com/" + path.Join(me.MetricsNamePrefix, dist.Name)
-
-		// Prepare bucket bounds
-		bucketBounds := make([]float64, dist.NumBuckets+1)
-		for i := 0; i <= dist.NumBuckets; i++ {
-			bucketBounds[i] = float64(dist.Offset) + float64(dist.Step)*float64(i)
-		}
-
-		distBuckets := dist.GetAndClear()
 		ts := &monitoringpb.TimeSeries{
-			Metric: &metric.Metric{
-				Type:   metricType,
-				Labels: labels,
-			},
+			Metric:   me.buildMetric(dist.Name, dist.Labels),
 			Resource: me.MonitoredResource,
 			Points: []*monitoringpb.Point{
 				{
-					Interval: &monitoringpb.TimeInterval{
-						EndTime: timestamppb.New(now),
-					},
+					Interval: interval,
 					Value: &monitoringpb.TypedValue{
 						Value: &monitoringpb.TypedValue_DistributionValue{
 							DistributionValue: &distribution.Distribution{
-								Count:                 distBuckets.NumSamples,
-								Mean:                  distBuckets.Mean,
-								SumOfSquaredDeviation: distBuckets.SumOfSquaredDeviation,
+								Count:                 value.NumSamples,
+								Mean:                  value.Mean,
+								SumOfSquaredDeviation: value.SumOfSquaredDeviation,
 								BucketOptions: &distribution.Distribution_BucketOptions{
 									Options: &distribution.Distribution_BucketOptions_ExplicitBuckets{
 										ExplicitBuckets: &distribution.Distribution_BucketOptions_Explicit{
-											Bounds: bucketBounds,
+											Bounds: dist.BucketBounds(),
 										},
 									},
 								},
-								BucketCounts: distBuckets.Buckets,
+								BucketCounts: value.Buckets,
 							},
 						},
 					},
 				},
 			},
 		}
+
 		timeSeriesList = append(timeSeriesList, ts)
 	}
 
