@@ -15,7 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type MetricsEmitter struct {
+type GcpMetrics struct {
 	Client              *monitoring.MetricClient
 	ProjectID           string
 	MetricsNamePrefix   string
@@ -26,13 +26,13 @@ type MetricsEmitter struct {
 	BeforeEmitListeners []func()
 }
 
-func NewMetricsEmitter(
+func NewGcpMetrics(
 	client *monitoring.MetricClient,
 	projectID string,
 	metricsNamePrefix string,
 	commonLabels map[string]string,
-) *MetricsEmitter {
-	return &MetricsEmitter{
+) *GcpMetrics {
+	return &GcpMetrics{
 		Client:              client,
 		ProjectID:           projectID,
 		MetricsNamePrefix:   metricsNamePrefix,
@@ -44,25 +44,25 @@ func NewMetricsEmitter(
 	}
 }
 
-// AddCounter addds a Counter to the emitter.
-func (me *MetricsEmitter) AddCounter(counter *Counter) {
+// AddCounter addds a Counter to the metrics.
+func (me *GcpMetrics) AddCounter(counter *Counter) {
 	me.Counters = append(me.Counters, counter)
 }
 
-// Counter creates a new Counter, adds it to the emitter, and returns it.
-func (me *MetricsEmitter) Counter(name string, labels map[string]string) *Counter {
+// Counter creates a new Counter, adds it to the metrics, and returns it.
+func (me *GcpMetrics) Counter(name string, labels map[string]string) *Counter {
 	counter := NewCounterWithLabels(name, labels)
 	me.AddCounter(counter)
 	return counter
 }
 
-// AddDistribution adds a Distribution to the emitter.
-func (me *MetricsEmitter) AddDistribution(dist *Distribution) {
+// AddDistribution adds a Distribution to the metrics.
+func (me *GcpMetrics) AddDistribution(dist *Distribution) {
 	me.Distributions = append(me.Distributions, dist)
 }
 
-// Distribution creates a new Distribution, adds it to the emitter, and returns it.
-func (me *MetricsEmitter) Distribution(
+// Distribution creates a new Distribution, adds it to the metrics, and returns it.
+func (me *GcpMetrics) Distribution(
 	name,
 	unit string,
 	step,
@@ -74,25 +74,25 @@ func (me *MetricsEmitter) Distribution(
 	return dist
 }
 
-// AddGauge adds a Gauge to the emitter.
-func (me *MetricsEmitter) AddGauge(g *Gauge) {
+// AddGauge adds a Gauge to the metrics.
+func (me *GcpMetrics) AddGauge(g *Gauge) {
 	me.Gauges = append(me.Gauges, g)
 }
 
-// Gauge creates a new Gauge, adds it to the emitter, and returns it.
-func (me *MetricsEmitter) Gauge(name string, labels map[string]string) *Gauge {
+// Gauge creates a new Gauge, adds it to the metrics, and returns it.
+func (me *GcpMetrics) Gauge(name string, labels map[string]string) *Gauge {
 	g := NewGauge(name, labels)
 	me.AddGauge(g)
 	return g
 }
 
-func (me *MetricsEmitter) AddBeforeEmitListener(listener func()) {
+func (me *GcpMetrics) AddBeforeEmitListener(listener func()) {
 	me.BeforeEmitListeners = append(me.BeforeEmitListeners, listener)
 }
 
-func (me *MetricsEmitter) Emit(ctx context.Context) {
+func (me *GcpMetrics) Emit(ctx context.Context) {
 	if me.ProjectID == "" {
-		log.Println("ProjectID must be set in MetricsEmitter")
+		log.Println("ProjectID must be set in GcpMetrics")
 		return
 	}
 	if me.Client == nil {
@@ -275,7 +275,7 @@ func (me *MetricsEmitter) Emit(ctx context.Context) {
 }
 
 // EmitEvery schedules Emit to run at the given interval in a new goroutine.
-func (me *MetricsEmitter) EmitEvery(ctx context.Context, interval time.Duration) *time.Ticker {
+func (me *GcpMetrics) EmitEvery(ctx context.Context, interval time.Duration) *time.Ticker {
 	ticker := time.NewTicker(interval)
 	go func() {
 		for {
