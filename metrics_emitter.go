@@ -16,13 +16,14 @@ import (
 )
 
 type MetricsEmitter struct {
-	Client            *monitoring.MetricClient
-	ProjectID         string
-	MetricsNamePrefix string
-	CommonLabels      map[string]string
-	Counters          []*Counter
-	Distributions     []*Distribution
-	Gauges            []*Gauge
+	Client              *monitoring.MetricClient
+	ProjectID           string
+	MetricsNamePrefix   string
+	CommonLabels        map[string]string
+	Counters            []*Counter
+	Distributions       []*Distribution
+	Gauges              []*Gauge
+	BeforeEmitListeners []func()
 }
 
 func NewMetricsEmitter(
@@ -32,13 +33,14 @@ func NewMetricsEmitter(
 	commonLabels map[string]string,
 ) *MetricsEmitter {
 	return &MetricsEmitter{
-		Client:            client,
-		ProjectID:         projectID,
-		MetricsNamePrefix: metricsNamePrefix,
-		CommonLabels:      commonLabels,
-		Counters:          []*Counter{},
-		Distributions:     []*Distribution{},
-		Gauges:            []*Gauge{},
+		Client:              client,
+		ProjectID:           projectID,
+		MetricsNamePrefix:   metricsNamePrefix,
+		CommonLabels:        commonLabels,
+		Counters:            []*Counter{},
+		Distributions:       []*Distribution{},
+		Gauges:              []*Gauge{},
+		BeforeEmitListeners: []func(){},
 	}
 }
 
@@ -82,6 +84,10 @@ func (me *MetricsEmitter) Gauge(name string, labels map[string]string) *Gauge {
 	g := NewGauge(name, labels)
 	me.AddGauge(g)
 	return g
+}
+
+func (me *MetricsEmitter) AddBeforeEmitListener(listener func()) {
+	me.BeforeEmitListeners = append(me.BeforeEmitListeners, listener)
 }
 
 func (me *MetricsEmitter) Emit() {
@@ -275,6 +281,14 @@ func (me *MetricsEmitter) EmitEvery(interval time.Duration) *time.Ticker {
 	ticker := time.NewTicker(interval)
 	go func() {
 		for range ticker.C {
+			// Notify before emit listeners
+			for _, listener := range me.BeforeEmitListeners {
+				if listener != nil {
+					listener()
+				}
+			}
+
+			// Emit metrics
 			me.Emit()
 		}
 	}()

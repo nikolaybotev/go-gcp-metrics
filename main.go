@@ -42,6 +42,18 @@ func main() {
 	gaugeA := emitter.Gauge("sample_gauge_a", map[string]string{"env": "prod"})
 	gaugeB := emitter.Gauge("sample_gauge_b", map[string]string{"env": "dev"})
 
+	// Set gauges before emit
+	emitter.AddBeforeEmitListener(func() {
+		// Set gauge to a random value
+		gaugeA.Set(rand.Int63n(1000))
+		gaugeB.Set(rand.Int63n(1000))
+
+		fmt.Printf("Updated gauges: %s=%d, %s=%d\n",
+			gaugeA.Name, gaugeA.Value(),
+			gaugeB.Name, gaugeB.Value(),
+		)
+	})
+
 	// Emit counters every 10 seconds
 	ticker := emitter.EmitEvery(10 * time.Second)
 	defer ticker.Stop()
@@ -55,15 +67,6 @@ func main() {
 		fmt.Printf("Updated counters: %s=%d, %s=%d\n",
 			counterA.Name, counterA.Value(),
 			counterB.Name, counterB.Value(),
-		)
-
-		// Set gauge to a random value
-		gaugeA.Set(rand.Int63n(1000))
-		gaugeB.Set(rand.Int63n(1000))
-
-		fmt.Printf("Updated gauges: %s=%d, %s=%d\n",
-			gaugeA.Name, gaugeA.Value(),
-			gaugeB.Name, gaugeB.Value(),
 		)
 
 		// Update distributions with random values
