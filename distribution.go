@@ -22,6 +22,8 @@ type Distribution struct {
 	mu         sync.Mutex
 }
 
+// Create a new Distribution with the given name, unit, step, numBuckets, and labels.
+// Unit format is documented at: https://cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.metricDescriptors
 func NewDistribution(name, unit string, step, numBuckets int, labels map[string]string) *Distribution {
 	return &Distribution{
 		Name:       name,

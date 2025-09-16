@@ -181,9 +181,13 @@ func (me *GcpMetrics) Emit(ctx context.Context) {
 	// Emit distributions
 	for _, dist := range me.Distributions {
 		value := dist.GetAndClear()
+		if value.NumSamples == 0 {
+			continue
+		}
 
 		ts := &monitoringpb.TimeSeries{
 			Metric:   me.buildMetric(dist.Name, dist.Labels),
+			Unit:     dist.Unit,
 			Resource: me.MonitoredResource,
 			Points: []*monitoringpb.Point{
 				{
