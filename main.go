@@ -22,9 +22,7 @@ func main() {
 	// Get the instance ID or hostname to use as a label
 	instance := GetInstanceName()
 	log.Printf("Using instance: %s", instance)
-	commonLabels := map[string]string{
-		"instance": instance,
-	}
+	commonLabels := map[string]string{}
 
 	// Create the GCP Monitoring client
 	ctx := context.Background()
@@ -36,9 +34,12 @@ func main() {
 
 	// Create the MonitoredResource instance
 	resource := &monitoredres.MonitoredResource{
-		Type: "global",
+		Type: "generic_node",
 		Labels: map[string]string{
 			"project_id": projectID,
+			"location":   "us-central1",
+			"namespace":  "",
+			"node_name":  instance,
 		},
 	}
 
