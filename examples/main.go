@@ -40,7 +40,7 @@ func main() {
 			"project_id": projectID,
 			"location":   "us-central1",
 			"namespace":  "",
-			"node_name":  instance,
+			"node_id":    instance,
 		},
 	}
 
