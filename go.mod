@@ -1,4 +1,4 @@
-module nikolaybotev.com/go-gcp-metrics
+module github.com/nikolaybotev/go-gcp-metrics
 
 go 1.20
 
