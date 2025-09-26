@@ -2,9 +2,11 @@ package gcpmetrics
 
 import (
 	"context"
-	"fmt"
+	"io"
 	"log"
+	"math"
 	"path"
+	"strings"
 	"time"
 
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
@@ -25,6 +27,8 @@ type GcpMetrics struct {
 	Distributions       []*Distribution
 	Gauges              []*Gauge
 	BeforeEmitListeners []func()
+	errorLogger         *log.Logger
+	infoLogger          *log.Logger
 }
 
 func NewGcpMetrics(
@@ -33,7 +37,17 @@ func NewGcpMetrics(
 	monitoredResource *monitoredres.MonitoredResource,
 	metricsNamePrefix string,
 	commonLabels map[string]string,
+	errorLogger *log.Logger,
+	infoLogger *log.Logger,
 ) *GcpMetrics {
+	// Set defaults if nil
+	if errorLogger == nil {
+		errorLogger = log.Default()
+	}
+	if infoLogger == nil {
+		infoLogger = log.New(io.Discard, "", 0)
+	}
+
 	return &GcpMetrics{
 		Client:              client,
 		ProjectID:           projectID,
@@ -44,6 +58,8 @@ func NewGcpMetrics(
 		Distributions:       []*Distribution{},
 		Gauges:              []*Gauge{},
 		BeforeEmitListeners: []func(){},
+		errorLogger:         errorLogger,
+		infoLogger:          infoLogger,
 	}
 }
 
@@ -115,15 +131,15 @@ func (me *GcpMetrics) buildMetric(name string, specificLabels map[string]string)
 
 func (me *GcpMetrics) Emit(ctx context.Context) {
 	if me.Client == nil {
-		log.Println("Client must be set in GcpMetrics")
+		me.errorLogger.Println("Client must be set in GcpMetrics")
 		return
 	}
 	if me.ProjectID == "" {
-		log.Println("ProjectID must be set in GcpMetrics")
+		me.errorLogger.Println("ProjectID must be set in GcpMetrics")
 		return
 	}
 	if me.MonitoredResource == nil {
-		log.Println("MonitoredResource must be set in GcpMetrics")
+		me.errorLogger.Println("MonitoredResource must be set in GcpMetrics")
 		return
 	}
 
@@ -226,16 +242,47 @@ func (me *GcpMetrics) Emit(ctx context.Context) {
 	}
 
 	if err := me.Client.CreateTimeSeries(ctx, req); err != nil {
-		log.Printf("failed to write time series data: %v", err)
+		me.errorLogger.Printf("failed to write time series data: %v", err)
 	} else {
-		for _, counter := range me.Counters {
-			fmt.Printf("Published counter %s value %d at %s\n", counter.Name, counter.Value(), now.Format(time.RFC3339))
-		}
-		for _, gauge := range me.Gauges {
-			fmt.Printf("Published gauge %s value %d at %s\n", gauge.Name, gauge.Value(), now.Format(time.RFC3339))
-		}
-		for _, dist := range me.Distributions {
-			fmt.Printf("Published distribution %s at %s\n", dist.Name, now.Format(time.RFC3339))
+		for _, ts := range timeSeriesList {
+			metricName := ts.Metric.Type
+			// Remove the "custom.googleapis.com/" prefix
+			if len(metricName) > 22 {
+				metricName = metricName[22:]
+			}
+			// Remove the MetricsNamePrefix
+			if me.MetricsNamePrefix != "" && len(metricName) > len(me.MetricsNamePrefix)+1 {
+				if len(metricName) > len(me.MetricsNamePrefix) && metricName[:len(me.MetricsNamePrefix)] == me.MetricsNamePrefix {
+					metricName = metricName[len(me.MetricsNamePrefix):]
+				}
+			}
+
+			// Add labels in square brackets
+			if len(ts.Metric.Labels) > 0 {
+				labelParts := make([]string, 0, len(ts.Metric.Labels))
+				for k, v := range ts.Metric.Labels {
+					labelParts = append(labelParts, k+"="+v)
+				}
+				metricName += "[" + strings.Join(labelParts, ",") + "]"
+			}
+
+			if len(ts.Points) > 0 {
+				point := ts.Points[0]
+				switch v := point.Value.Value.(type) {
+				case *monitoringpb.TypedValue_Int64Value:
+					me.infoLogger.Printf("Published metric %s value %d", metricName, v.Int64Value)
+				case *monitoringpb.TypedValue_DistributionValue:
+					dist := v.DistributionValue
+					// Calculate standard deviation from sum of squared deviations
+					var stdDev float64
+					if dist.Count > 1 {
+						variance := dist.SumOfSquaredDeviation / float64(dist.Count-1)
+						stdDev = math.Sqrt(variance)
+					}
+					me.infoLogger.Printf("Published distribution %s with %d samples (mean %.2f, stddev %.2f)",
+						metricName, dist.Count, dist.Mean, stdDev)
+				}
+			}
 		}
 	}
 }
