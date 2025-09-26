@@ -22,7 +22,7 @@ type GcpMetrics struct {
 	ProjectID           string
 	MonitoredResource   *monitoredres.MonitoredResource
 	MetricsNamePrefix   string
-	CommonLabels        []Label
+	CommonLabels        map[string]string
 	Counters            []*Counter
 	Distributions       []*Distribution
 	Gauges              []*Gauge
@@ -36,9 +36,9 @@ func NewGcpMetrics(
 	projectID string,
 	monitoredResource *monitoredres.MonitoredResource,
 	metricsNamePrefix string,
+	commonLabels map[string]string,
 	errorLogger *log.Logger,
 	infoLogger *log.Logger,
-	commonLabels ...Label,
 ) *GcpMetrics {
 	// Set defaults if nil
 	if errorLogger == nil {
@@ -69,8 +69,8 @@ func (me *GcpMetrics) AddCounter(counter *Counter) {
 }
 
 // Counter creates a new Counter, adds it to the metrics, and returns it.
-func (me *GcpMetrics) Counter(name string, labels ...Label) *Counter {
-	counter := NewCounter(name, labels...)
+func (me *GcpMetrics) Counter(name string, labels map[string]string) *Counter {
+	counter := NewCounter(name, labels)
 	me.AddCounter(counter)
 	return counter
 }
@@ -81,8 +81,8 @@ func (me *GcpMetrics) AddGauge(g *Gauge) {
 }
 
 // Gauge creates a new Gauge, adds it to the metrics, and returns it.
-func (me *GcpMetrics) Gauge(name string, labels ...Label) *Gauge {
-	g := NewGauge(name, labels...)
+func (me *GcpMetrics) Gauge(name string, labels map[string]string) *Gauge {
+	g := NewGauge(name, labels)
 	me.AddGauge(g)
 	return g
 }
@@ -98,9 +98,9 @@ func (me *GcpMetrics) Distribution(
 	unit string,
 	step,
 	numBuckets int,
-	labels ...Label,
+	labels map[string]string,
 ) *Distribution {
-	dist := NewDistribution(name, unit, step, numBuckets, labels...)
+	dist := NewDistribution(name, unit, step, numBuckets, labels)
 	me.AddDistribution(dist)
 	return dist
 }
@@ -110,19 +110,19 @@ func (me *GcpMetrics) AddBeforeEmitListener(listener func()) {
 }
 
 // mergeLabels merges common labels with metric-specific labels.
-func (me *GcpMetrics) mergeLabels(specificLabels []Label) map[string]string {
-	labels := make(map[string]string, len(me.CommonLabels)+len(specificLabels))
-	for _, v := range me.CommonLabels {
-		labels[v.Name] = v.Value
+func (me *GcpMetrics) mergeLabels(specific map[string]string) map[string]string {
+	labels := make(map[string]string, len(me.CommonLabels)+len(specific))
+	for k, v := range me.CommonLabels {
+		labels[k] = v
 	}
-	for _, v := range specificLabels {
-		labels[v.Name] = v.Value
+	for k, v := range specific {
+		labels[k] = v
 	}
 	return labels
 }
 
 // buildMetric constructs a metric.Metric with the correct type and merged labels.
-func (me *GcpMetrics) buildMetric(name string, specificLabels []Label) *metric.Metric {
+func (me *GcpMetrics) buildMetric(name string, specificLabels map[string]string) *metric.Metric {
 	return &metric.Metric{
 		Type:   "custom.googleapis.com/" + path.Join(me.MetricsNamePrefix, name),
 		Labels: me.mergeLabels(specificLabels),

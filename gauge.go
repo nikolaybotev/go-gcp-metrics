@@ -4,11 +4,11 @@ import "sync/atomic"
 
 type Gauge struct {
 	Name   string
-	Labels []Label
+	Labels map[string]string
 	value  int64
 }
 
-func NewGauge(name string, labels ...Label) *Gauge {
+func NewGauge(name string, labels map[string]string) *Gauge {
 	return &Gauge{
 		Name:   name,
 		Labels: labels,
