@@ -6,11 +6,11 @@ import (
 
 type Counter struct {
 	Name   string
-	Labels map[string]string
+	Labels []Label
 	value  int64
 }
 
-func NewCounter(name string, labels map[string]string) *Counter {
+func NewCounter(name string, labels ...Label) *Counter {
 	return &Counter{
 		Name:   name,
 		Labels: labels,
