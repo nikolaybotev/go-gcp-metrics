@@ -26,7 +26,6 @@ func main() {
 	// Get the instance ID or hostname to use as a label
 	instance := gcpmetrics.GetInstanceName()
 	infoLogger.Printf("Using instance: %s", instance)
-	commonLabels := map[string]string{}
 
 	// Create the GCP Monitoring client
 	ctx := context.Background()
@@ -48,7 +47,10 @@ func main() {
 	}
 
 	// Create GcpMetrics and add counters, distributions, and gauges
-	metrics := gcpmetrics.NewGcpMetrics(client, projectID, resource, "go/", errorLogger, infoLogger, commonLabels)
+	metrics := gcpmetrics.NewGcpMetrics(client, projectID, resource, "go/", &gcpmetrics.Options{
+		ErrorLogger: errorLogger,
+		InfoLogger:  infoLogger,
+	})
 	counterA := metrics.Counter("sample_counter_a", map[string]string{"env": "prod"})
 	counterB := metrics.Counter("sample_counter_b", map[string]string{"env": "dev"})
 	distributionA := metrics.Distribution("sample_distribution_a", "ms", 100, 1, map[string]string{"env": "prod"})

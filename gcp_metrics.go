@@ -17,6 +17,13 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// Options contains optional configuration for GcpMetrics.
+type Options struct {
+	ErrorLogger  *log.Logger
+	InfoLogger   *log.Logger
+	CommonLabels map[string]string
+}
+
 type GcpMetrics struct {
 	Client              *monitoring.MetricClient
 	ProjectID           string
@@ -36,16 +43,20 @@ func NewGcpMetrics(
 	projectID string,
 	monitoredResource *monitoredres.MonitoredResource,
 	metricsNamePrefix string,
-	errorLogger *log.Logger,
-	infoLogger *log.Logger,
-	commonLabels map[string]string,
+	opts *Options,
 ) *GcpMetrics {
 	// Set defaults if nil
-	if errorLogger == nil {
-		errorLogger = log.Default()
+	if opts == nil {
+		opts = &Options{}
 	}
-	if infoLogger == nil {
-		infoLogger = log.New(io.Discard, "", 0)
+	if opts.ErrorLogger == nil {
+		opts.ErrorLogger = log.Default()
+	}
+	if opts.InfoLogger == nil {
+		opts.InfoLogger = log.New(io.Discard, "", 0)
+	}
+	if opts.CommonLabels == nil {
+		opts.CommonLabels = make(map[string]string)
 	}
 
 	return &GcpMetrics{
@@ -53,13 +64,13 @@ func NewGcpMetrics(
 		ProjectID:           projectID,
 		MonitoredResource:   monitoredResource,
 		MetricsNamePrefix:   metricsNamePrefix,
-		CommonLabels:        commonLabels,
+		CommonLabels:        opts.CommonLabels,
 		Counters:            []*Counter{},
 		Distributions:       []*Distribution{},
 		Gauges:              []*Gauge{},
 		BeforeEmitListeners: []func(){},
-		errorLogger:         errorLogger,
-		infoLogger:          infoLogger,
+		errorLogger:         opts.ErrorLogger,
+		infoLogger:          opts.InfoLogger,
 	}
 }
 
