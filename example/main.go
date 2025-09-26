@@ -48,7 +48,7 @@ func main() {
 	}
 
 	// Create GcpMetrics and add counters, distributions, and gauges
-	metrics := gcpmetrics.NewGcpMetrics(client, projectID, resource, "go/", commonLabels, errorLogger, infoLogger)
+	metrics := gcpmetrics.NewGcpMetrics(client, projectID, resource, "go/", errorLogger, infoLogger, commonLabels)
 	counterA := metrics.Counter("sample_counter_a", map[string]string{"env": "prod"})
 	counterB := metrics.Counter("sample_counter_b", map[string]string{"env": "dev"})
 	distributionA := metrics.Distribution("sample_distribution_a", "ms", 100, 1, map[string]string{"env": "prod"})

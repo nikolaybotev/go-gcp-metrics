@@ -36,9 +36,9 @@ func NewGcpMetrics(
 	projectID string,
 	monitoredResource *monitoredres.MonitoredResource,
 	metricsNamePrefix string,
-	commonLabels map[string]string,
 	errorLogger *log.Logger,
 	infoLogger *log.Logger,
+	commonLabels map[string]string,
 ) *GcpMetrics {
 	// Set defaults if nil
 	if errorLogger == nil {
