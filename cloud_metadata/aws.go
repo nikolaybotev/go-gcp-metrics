@@ -15,28 +15,28 @@ const (
 
 // GetAWSEC2InstanceID returns the EC2 instance ID from IMDSv2
 func GetAWSEC2InstanceID() (string, error) {
-	return getAWSMetadata("/latest/meta-data/instance-id")
+	return GetAWSMetadata("/latest/meta-data/instance-id")
 }
 
 // GetAWSAutoScalingGroupName returns the Auto Scaling Group name from IMDSv2
 // Note: Requires Instance Metadata Tags to be enabled on the instance
 func GetAWSAutoScalingGroupName() (string, error) {
-	return getAWSMetadata("/latest/meta-data/tags/instance/aws:autoscaling:groupName")
+	return GetAWSMetadata("/latest/meta-data/tags/instance/aws:autoscaling:groupName")
 }
 
 // GetAWSRegion returns the AWS region from IMDSv2
 func GetAWSRegion() (string, error) {
-	return getAWSMetadata("/latest/meta-data/placement/region")
+	return GetAWSMetadata("/latest/meta-data/placement/region")
 }
 
 // GetAWSAvailabilityZone returns the AWS availability zone from IMDSv2
 func GetAWSAvailabilityZone() (string, error) {
-	return getAWSMetadata("/latest/meta-data/placement/availability-zone")
+	return GetAWSMetadata("/latest/meta-data/placement/availability-zone")
 }
 
 // GetAWSAccountID returns the AWS account ID from IMDSv2
 func GetAWSAccountID() (string, error) {
-	data, err := getAWSMetadata("/latest/dynamic/instance-identity/document")
+	data, err := GetAWSMetadata("/latest/dynamic/instance-identity/document")
 	if err != nil {
 		return "", err
 	}
@@ -75,8 +75,8 @@ func getIMDSv2Token(client *http.Client) string {
 	return string(tokenBytes)
 }
 
-// getAWSMetadata fetches a metadata value from the given path using IMDSv2
-func getAWSMetadata(path string) (string, error) {
+// GetAWSMetadata fetches a metadata value from the given path using IMDSv2
+func GetAWSMetadata(path string) (string, error) {
 	client := http.Client{Timeout: 2 * time.Second}
 	defer client.CloseIdleConnections()
 
