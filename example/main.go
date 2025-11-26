@@ -9,6 +9,7 @@ import (
 
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
 	gcpmetrics "github.com/nikolaybotev/go-gcp-metrics"
+	"github.com/nikolaybotev/go-gcp-metrics/cloud_metadata"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 )
 
@@ -24,7 +25,7 @@ func main() {
 	}
 
 	// Get the instance ID or hostname to use as a label
-	instance := gcpmetrics.GetInstanceName()
+	instance := cloud_metadata.GetInstanceName()
 	infoLogger.Printf("Using instance: %s", instance)
 
 	// Create the GCP Monitoring client
