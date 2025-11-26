@@ -1,6 +1,7 @@
 package cloud_metadata
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,6 +32,23 @@ func GetAWSRegion() (string, error) {
 // GetAWSAvailabilityZone returns the AWS availability zone from IMDSv2
 func GetAWSAvailabilityZone() (string, error) {
 	return getAWSMetadata("/latest/meta-data/placement/availability-zone")
+}
+
+// GetAWSAccountID returns the AWS account ID from IMDSv2
+func GetAWSAccountID() (string, error) {
+	data, err := getAWSMetadata("/latest/dynamic/instance-identity/document")
+	if err != nil {
+		return "", err
+	}
+
+	var doc struct {
+		AccountId string `json:"accountId"`
+	}
+	if err := json.Unmarshal([]byte(data), &doc); err != nil {
+		return "", fmt.Errorf("failed to parse instance identity document: %v", err)
+	}
+
+	return doc.AccountId, nil
 }
 
 // getIMDSv2Token obtains an IMDSv2 session token
