@@ -24,20 +24,21 @@ type Options struct {
 	CommonLabels map[string]string
 }
 
+// GcpMetrics is a Metrics implementation that emits metrics to Google Cloud Monitoring.
+// It embeds MetricsCore for the backend-agnostic functionality.
 type GcpMetrics struct {
-	Client              *monitoring.MetricClient
-	ProjectID           string
-	MonitoredResource   *monitoredres.MonitoredResource
-	MetricsNamePrefix   string
-	CommonLabels        map[string]string
-	Counters            []*Counter
-	Distributions       []*Distribution
-	Gauges              []*Gauge
-	BeforeEmitListeners []func()
-	errorLogger         *log.Logger
-	infoLogger          *log.Logger
+	MetricsCore
+
+	Client            *monitoring.MetricClient
+	ProjectID         string
+	MonitoredResource *monitoredres.MonitoredResource
+	MetricsNamePrefix string
+	CommonLabels      map[string]string
+	errorLogger       *log.Logger
+	infoLogger        *log.Logger
 }
 
+// NewGcpMetrics creates a new GcpMetrics instance.
 func NewGcpMetrics(
 	client *monitoring.MetricClient,
 	projectID string,
@@ -60,64 +61,15 @@ func NewGcpMetrics(
 	}
 
 	return &GcpMetrics{
-		Client:              client,
-		ProjectID:           projectID,
-		MonitoredResource:   monitoredResource,
-		MetricsNamePrefix:   metricsNamePrefix,
-		CommonLabels:        opts.CommonLabels,
-		Counters:            []*Counter{},
-		Distributions:       []*Distribution{},
-		Gauges:              []*Gauge{},
-		BeforeEmitListeners: []func(){},
-		errorLogger:         opts.ErrorLogger,
-		infoLogger:          opts.InfoLogger,
+		MetricsCore:       *NewMetricsCore(), // Dereference to get value
+		Client:            client,
+		ProjectID:         projectID,
+		MonitoredResource: monitoredResource,
+		MetricsNamePrefix: metricsNamePrefix,
+		CommonLabels:      opts.CommonLabels,
+		errorLogger:       opts.ErrorLogger,
+		infoLogger:        opts.InfoLogger,
 	}
-}
-
-// AddCounter addds a Counter to the metrics.
-func (me *GcpMetrics) AddCounter(counter *Counter) {
-	me.Counters = append(me.Counters, counter)
-}
-
-// Counter creates a new Counter, adds it to the metrics, and returns it.
-func (me *GcpMetrics) Counter(name string, labels map[string]string) *Counter {
-	counter := NewCounter(name, labels)
-	me.AddCounter(counter)
-	return counter
-}
-
-// AddGauge adds a Gauge to the metrics.
-func (me *GcpMetrics) AddGauge(g *Gauge) {
-	me.Gauges = append(me.Gauges, g)
-}
-
-// Gauge creates a new Gauge, adds it to the metrics, and returns it.
-func (me *GcpMetrics) Gauge(name string, labels map[string]string) *Gauge {
-	g := NewGauge(name, labels)
-	me.AddGauge(g)
-	return g
-}
-
-// AddDistribution adds a Distribution to the metrics.
-func (me *GcpMetrics) AddDistribution(dist *Distribution) {
-	me.Distributions = append(me.Distributions, dist)
-}
-
-// Distribution creates a new Distribution, adds it to the metrics, and returns it.
-func (me *GcpMetrics) Distribution(
-	name,
-	unit string,
-	step,
-	numBuckets int,
-	labels map[string]string,
-) *Distribution {
-	dist := NewDistribution(name, unit, step, numBuckets, labels)
-	me.AddDistribution(dist)
-	return dist
-}
-
-func (me *GcpMetrics) AddBeforeEmitListener(listener func()) {
-	me.BeforeEmitListeners = append(me.BeforeEmitListeners, listener)
 }
 
 // mergeLabels merges common labels with metric-specific labels.
