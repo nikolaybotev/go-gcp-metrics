@@ -65,3 +65,12 @@ func (me *MetricsCore) Distribution(
 func (me *MetricsCore) AddBeforeEmitListener(listener func()) {
 	me.BeforeEmitListeners = append(me.BeforeEmitListeners, listener)
 }
+
+// NotifyBeforeEmitListeners calls all registered before-emit listeners.
+func (m *MetricsCore) notifyBeforeEmitListeners() {
+	for _, listener := range m.BeforeEmitListeners {
+		if listener != nil {
+			listener()
+		}
+	}
+}

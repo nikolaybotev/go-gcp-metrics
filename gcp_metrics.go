@@ -258,11 +258,7 @@ func (me *GcpMetrics) EmitEvery(ctx context.Context, interval time.Duration) *ti
 			select {
 			case <-ticker.C:
 				// Notify before emit listeners
-				for _, listener := range me.BeforeEmitListeners {
-					if listener != nil {
-						listener()
-					}
-				}
+				me.notifyBeforeEmitListeners()
 				// Emit metrics
 				me.Emit(ctx)
 			case <-ctx.Done():
