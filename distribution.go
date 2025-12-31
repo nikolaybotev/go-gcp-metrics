@@ -4,6 +4,14 @@ import (
 	"sync"
 )
 
+// Distribution is the public interface for distributions.
+// Both StaticDistribution and DynamicDistribution implement this interface.
+type Distribution interface {
+	// Update records a value in the distribution. For dynamic distributions, labelValues specify the label combination.
+	Update(value int64, labelValues ...string)
+}
+
+// DistributionBuckets holds the bucket data for a distribution.
 type DistributionBuckets struct {
 	Buckets               []int64
 	NumSamples            int64
@@ -11,7 +19,9 @@ type DistributionBuckets struct {
 	SumOfSquaredDeviation float64
 }
 
-type Distribution struct {
+// StaticDistribution is a distribution with fixed labels defined at creation time.
+// It ignores any labelValues passed to Update method.
+type StaticDistribution struct {
 	Name       string
 	Unit       string
 	Offset     int64
@@ -22,10 +32,10 @@ type Distribution struct {
 	mu         sync.Mutex
 }
 
-// Create a new Distribution with the given name, unit, step, numBuckets, and labels.
+// NewStaticDistribution creates a new StaticDistribution with the given name, unit, step, numBuckets, and labels.
 // Unit format is documented at: https://cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.metricDescriptors
-func NewDistribution(name, unit string, step, numBuckets int, labels map[string]string) *Distribution {
-	return &Distribution{
+func NewStaticDistribution(name, unit string, step, numBuckets int, labels map[string]string) *StaticDistribution {
+	return &StaticDistribution{
 		Name:       name,
 		Unit:       unit,
 		Offset:     0,
@@ -39,7 +49,8 @@ func NewDistribution(name, unit string, step, numBuckets int, labels map[string]
 	}
 }
 
-func (d *Distribution) Update(value int64) {
+// Update records a value in the distribution. The labelValues parameter is ignored for static distributions.
+func (d *StaticDistribution) Update(value int64, labelValues ...string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -54,7 +65,8 @@ func (d *Distribution) Update(value int64) {
 	d.value.SumOfSquaredDeviation = d.value.SumOfSquaredDeviation + delta*(float64(value)-d.value.Mean)
 }
 
-func (d *Distribution) GetAndClear() *DistributionBuckets {
+// GetAndClear returns the current distribution data and resets the distribution.
+func (d *StaticDistribution) GetAndClear() *DistributionBuckets {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -77,7 +89,7 @@ func (d *Distribution) GetAndClear() *DistributionBuckets {
 }
 
 // BucketBounds returns the bucket boundaries for this distribution.
-func (d *Distribution) BucketBounds() []float64 {
+func (d *StaticDistribution) BucketBounds() []float64 {
 	bucketBounds := make([]float64, d.NumBuckets+1)
 	for i := 0; i <= d.NumBuckets; i++ {
 		bucketBounds[i] = float64(d.Offset) + float64(d.Step)*float64(i)
@@ -85,6 +97,6 @@ func (d *Distribution) BucketBounds() []float64 {
 	return bucketBounds
 }
 
-func (d *Distribution) bucketForValue(value int64) int {
+func (d *StaticDistribution) bucketForValue(value int64) int {
 	return int(min(max(0, (value-d.Offset+d.Step)/d.Step), int64(d.NumBuckets+1)))
 }

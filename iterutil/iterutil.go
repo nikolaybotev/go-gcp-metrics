@@ -6,14 +6,15 @@ import (
 	"slices"
 )
 
-// DynamicMetric is an interface for dynamic metric types that provide an iterator over all their instances.
-type DynamicMetric[T any] interface {
+// MetricRegistry is an interface for metric types that provide an iterator over all their instances.
+// This is implemented by DynamicCounter, DynamicGauge, and DynamicDistribution.
+type MetricRegistry[T any] interface {
 	All() iter.Seq[T]
 }
 
 // CombineMetrics creates a single iterator combining static metrics (slice) with dynamic metrics.
 // This is useful for iterating over both static and dynamic metrics in a single loop.
-func CombineMetrics[T any, D DynamicMetric[T]](static []T, dynamic []D) iter.Seq[T] {
+func CombineMetrics[T any, D MetricRegistry[T]](static []T, dynamic []D) iter.Seq[T] {
 	staticIter := slices.Values(static)
 	dynamicIters := Map(slices.Values(dynamic), func(d D) iter.Seq[T] {
 		return d.All()

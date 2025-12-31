@@ -107,11 +107,11 @@ func (me *GcpMetricsEmitter) Emit(ctx context.Context, metrics *Metrics) {
 	allCounters := iterutil.CombineMetrics(metrics.Counters, metrics.DynamicCounters)
 
 	// Emit all counters (static + dynamic)
-	for counter := range allCounters {
-		value := counter.Value()
+	for staticCounter := range allCounters {
+		value := staticCounter.Value()
 
 		ts := &monitoringpb.TimeSeries{
-			Metric:   me.buildMetric(counter.Name, counter.Labels),
+			Metric:   me.buildMetric(staticCounter.Name, staticCounter.Labels),
 			Resource: me.MonitoredResource,
 			Points: []*monitoringpb.Point{
 				{
@@ -132,11 +132,11 @@ func (me *GcpMetricsEmitter) Emit(ctx context.Context, metrics *Metrics) {
 	allGauges := iterutil.CombineMetrics(metrics.Gauges, metrics.DynamicGauges)
 
 	// Emit all gauges (static + dynamic)
-	for gauge := range allGauges {
-		value := gauge.Value()
+	for staticGauge := range allGauges {
+		value := staticGauge.Value()
 
 		ts := &monitoringpb.TimeSeries{
-			Metric:   me.buildMetric(gauge.Name, gauge.Labels),
+			Metric:   me.buildMetric(staticGauge.Name, staticGauge.Labels),
 			Resource: me.MonitoredResource,
 			Points: []*monitoringpb.Point{
 				{
@@ -157,15 +157,15 @@ func (me *GcpMetricsEmitter) Emit(ctx context.Context, metrics *Metrics) {
 	allDistributions := iterutil.CombineMetrics(metrics.Distributions, metrics.DynamicDistributions)
 
 	// Emit all distributions (static + dynamic)
-	for dist := range allDistributions {
-		value := dist.GetAndClear()
+	for staticDist := range allDistributions {
+		value := staticDist.GetAndClear()
 		if value.NumSamples == 0 {
 			continue
 		}
 
 		ts := &monitoringpb.TimeSeries{
-			Metric:   me.buildMetric(dist.Name, dist.Labels),
-			Unit:     dist.Unit,
+			Metric:   me.buildMetric(staticDist.Name, staticDist.Labels),
+			Unit:     staticDist.Unit,
 			Resource: me.MonitoredResource,
 			Points: []*monitoringpb.Point{
 				{
@@ -179,7 +179,7 @@ func (me *GcpMetricsEmitter) Emit(ctx context.Context, metrics *Metrics) {
 								BucketOptions: &distribution.Distribution_BucketOptions{
 									Options: &distribution.Distribution_BucketOptions_ExplicitBuckets{
 										ExplicitBuckets: &distribution.Distribution_BucketOptions_Explicit{
-											Bounds: dist.BucketBounds(),
+											Bounds: staticDist.BucketBounds(),
 										},
 									},
 								},

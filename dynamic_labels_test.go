@@ -6,7 +6,7 @@ import (
 )
 
 func TestDynamicCounter_Basic(t *testing.T) {
-	counter := NewDynamicCounter("test_counter", "status", "method")
+	counter := NewDynamicCounter("test_counter", nil, "status", "method")
 
 	// Increment with different label combinations
 	counter.Inc("200", "GET")
@@ -27,7 +27,7 @@ func TestDynamicCounter_Basic(t *testing.T) {
 }
 
 func TestDynamicCounter_All(t *testing.T) {
-	counter := NewDynamicCounter("test_counter", "status")
+	counter := NewDynamicCounter("test_counter", nil, "status")
 
 	counter.Inc("200")
 	counter.Inc("404")
@@ -47,7 +47,7 @@ func TestDynamicCounter_All(t *testing.T) {
 }
 
 func TestDynamicGauge_Basic(t *testing.T) {
-	gauge := NewDynamicGauge("test_gauge", "location", "sensor")
+	gauge := NewDynamicGauge("test_gauge", nil, "location", "sensor")
 
 	gauge.Set(25, "datacenter1", "sensor1")
 	gauge.Set(30, "datacenter1", "sensor2")
@@ -65,7 +65,7 @@ func TestDynamicGauge_Basic(t *testing.T) {
 }
 
 func TestDynamicGauge_All(t *testing.T) {
-	gauge := NewDynamicGauge("test_gauge", "location")
+	gauge := NewDynamicGauge("test_gauge", nil, "location")
 
 	gauge.Set(10, "loc1")
 	gauge.Set(20, "loc2")
@@ -81,7 +81,7 @@ func TestDynamicGauge_All(t *testing.T) {
 }
 
 func TestDynamicDistribution_Basic(t *testing.T) {
-	dist := NewDynamicDistribution("test_dist", "ms", 100, 10, "endpoint")
+	dist := NewDynamicDistribution("test_dist", "ms", 100, 10, nil, "endpoint")
 
 	dist.Update(50, "/api/users")
 	dist.Update(150, "/api/users")
@@ -98,7 +98,7 @@ func TestDynamicDistribution_Basic(t *testing.T) {
 }
 
 func TestDynamicCounter_Concurrent(t *testing.T) {
-	counter := NewDynamicCounter("concurrent_counter", "goroutine")
+	counter := NewDynamicCounter("concurrent_counter", nil, "goroutine")
 
 	var wg sync.WaitGroup
 	numGoroutines := 100
@@ -124,7 +124,7 @@ func TestDynamicCounter_Concurrent(t *testing.T) {
 }
 
 func TestDynamicCounter_ConcurrentDifferentLabels(t *testing.T) {
-	counter := NewDynamicCounter("concurrent_counter", "id")
+	counter := NewDynamicCounter("concurrent_counter", nil, "id")
 
 	var wg sync.WaitGroup
 	numGoroutines := 100
@@ -214,10 +214,10 @@ func TestLabelValuesToMap(t *testing.T) {
 func TestMetrics_WithDynamicLabels(t *testing.T) {
 	metrics := NewMetrics()
 
-	// Create dynamic metrics
-	counter := metrics.CounterWithLabels("requests", "status", "method")
-	gauge := metrics.GaugeWithLabels("temperature", "location")
-	dist := metrics.DistributionWithLabels("latency", "ms", 100, 10, "endpoint")
+	// Create dynamic metrics using the unified API
+	counter := metrics.Counter("requests", nil, "status", "method")
+	gauge := metrics.Gauge("temperature", nil, "location")
+	dist := metrics.Distribution("latency", "ms", 100, 10, nil, "endpoint")
 
 	// Use them
 	counter.Inc("200", "GET")
@@ -235,12 +235,30 @@ func TestMetrics_WithDynamicLabels(t *testing.T) {
 	if len(metrics.DynamicDistributions) != 1 {
 		t.Errorf("expected 1 dynamic distribution, got %d", len(metrics.DynamicDistributions))
 	}
+}
 
-	// Verify values
-	if v := counter.Value("200", "GET"); v != 1 {
-		t.Errorf("expected 1, got %d", v)
+func TestMetrics_WithStaticLabels(t *testing.T) {
+	metrics := NewMetrics()
+
+	// Create static metrics using the unified API (no labelKeys)
+	counter := metrics.Counter("requests", map[string]string{"env": "prod"})
+	gauge := metrics.Gauge("temperature", map[string]string{"env": "prod"})
+	dist := metrics.Distribution("latency", "ms", 100, 10, map[string]string{"env": "prod"})
+
+	// Use them (labelValues are ignored for static metrics)
+	counter.Inc()
+	counter.Add(5)
+	gauge.Set(25)
+	dist.Update(50)
+
+	// Verify they're stored in metrics
+	if len(metrics.Counters) != 1 {
+		t.Errorf("expected 1 static counter, got %d", len(metrics.Counters))
 	}
-	if v := gauge.Value("datacenter1"); v != 25 {
-		t.Errorf("expected 25, got %d", v)
+	if len(metrics.Gauges) != 1 {
+		t.Errorf("expected 1 static gauge, got %d", len(metrics.Gauges))
+	}
+	if len(metrics.Distributions) != 1 {
+		t.Errorf("expected 1 static distribution, got %d", len(metrics.Distributions))
 	}
 }
