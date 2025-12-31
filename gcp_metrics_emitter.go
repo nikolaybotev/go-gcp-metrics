@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log"
+	"maps"
 	"math"
 	"path"
 	"strings"
@@ -64,12 +65,8 @@ func NewGcpMetricsEmitter(
 // mergeLabels merges common labels with metric-specific labels.
 func (me *GcpMetricsEmitter) mergeLabels(specific map[string]string) map[string]string {
 	labels := make(map[string]string, len(me.CommonLabels)+len(specific))
-	for k, v := range me.CommonLabels {
-		labels[k] = v
-	}
-	for k, v := range specific {
-		labels[k] = v
-	}
+	maps.Copy(labels, me.CommonLabels)
+	maps.Copy(labels, specific)
 	return labels
 }
 

@@ -68,9 +68,7 @@ func (d *Distribution) GetAndClear() *DistributionBuckets {
 	copy(result.Buckets, d.value.Buckets)
 
 	// Clear
-	for i := range d.value.Buckets {
-		d.value.Buckets[i] = 0
-	}
+	clear(d.value.Buckets)
 	d.value.NumSamples = 0
 	d.value.Mean = 0
 	d.value.SumOfSquaredDeviation = 0

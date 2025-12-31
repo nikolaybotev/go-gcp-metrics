@@ -87,7 +87,7 @@ func main() {
 		)
 
 		// Update distributions with random values
-		for i := 0; i < 100_000; i++ {
+		for range 100_000 {
 			go func() {
 				distributionA.Update(rand.Int63n(100))
 			}()
