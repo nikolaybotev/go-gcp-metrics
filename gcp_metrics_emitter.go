@@ -12,6 +12,7 @@ import (
 
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
 	"cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
+	"github.com/nikolaybotev/go-gcp-metrics/iterutil"
 	"google.golang.org/genproto/googleapis/api/distribution"
 	"google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
@@ -102,8 +103,11 @@ func (me *GcpMetricsEmitter) Emit(ctx context.Context, metrics *Metrics) {
 
 	var timeSeriesList []*monitoringpb.TimeSeries
 
-	// Emit counters
-	for _, counter := range metrics.Counters {
+	// Combine static and dynamic counters into a single iterator
+	allCounters := iterutil.CombineMetrics(metrics.Counters, metrics.DynamicCounters)
+
+	// Emit all counters (static + dynamic)
+	for counter := range allCounters {
 		value := counter.Value()
 
 		ts := &monitoringpb.TimeSeries{
@@ -124,8 +128,11 @@ func (me *GcpMetricsEmitter) Emit(ctx context.Context, metrics *Metrics) {
 		timeSeriesList = append(timeSeriesList, ts)
 	}
 
-	// Emit gauges
-	for _, gauge := range metrics.Gauges {
+	// Combine static and dynamic gauges into a single iterator
+	allGauges := iterutil.CombineMetrics(metrics.Gauges, metrics.DynamicGauges)
+
+	// Emit all gauges (static + dynamic)
+	for gauge := range allGauges {
 		value := gauge.Value()
 
 		ts := &monitoringpb.TimeSeries{
@@ -146,8 +153,11 @@ func (me *GcpMetricsEmitter) Emit(ctx context.Context, metrics *Metrics) {
 		timeSeriesList = append(timeSeriesList, ts)
 	}
 
-	// Emit distributions
-	for _, dist := range metrics.Distributions {
+	// Combine static and dynamic distributions into a single iterator
+	allDistributions := iterutil.CombineMetrics(metrics.Distributions, metrics.DynamicDistributions)
+
+	// Emit all distributions (static + dynamic)
+	for dist := range allDistributions {
 		value := dist.GetAndClear()
 		if value.NumSamples == 0 {
 			continue

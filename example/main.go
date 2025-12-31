@@ -52,6 +52,8 @@ func main() {
 		ErrorLogger: errorLogger,
 		InfoLogger:  infoLogger,
 	})
+
+	// Static metrics (labels fixed at creation time)
 	counterA := metrics.Counter("sample_counter_a", map[string]string{"env": "prod"})
 	counterB := metrics.Counter("sample_counter_b", map[string]string{"env": "dev"})
 	distributionA := metrics.Distribution("sample_distribution_a", "ms", 100, 1, map[string]string{"env": "prod"})
@@ -59,11 +61,21 @@ func main() {
 	gaugeA := metrics.Gauge("sample_gauge_a", map[string]string{"env": "prod"})
 	gaugeB := metrics.Gauge("sample_gauge_b", map[string]string{"env": "dev"})
 
+	// Dynamic metrics (label values provided at runtime)
+	httpRequests := metrics.CounterWithLabels("http_requests", "status", "method")
+	activeConnections := metrics.GaugeWithLabels("active_connections", "region")
+	requestLatency := metrics.DistributionWithLabels("request_latency", "ms", 100, 10, "endpoint", "method")
+
 	// Set gauges before emit
 	metrics.AddBeforeEmitListener(func() {
-		// Set gauge to a random value
+		// Set static gauges to random values
 		gaugeA.Set(rand.Int63n(1000))
 		gaugeB.Set(rand.Int63n(1000))
+
+		// Set dynamic gauges with different label values
+		activeConnections.Set(rand.Int63n(100), "us-east-1")
+		activeConnections.Set(rand.Int63n(100), "us-west-2")
+		activeConnections.Set(rand.Int63n(100), "eu-west-1")
 
 		infoLogger.Printf("Updated gauges: %s=%d, %s=%d\n",
 			gaugeA.Name, gaugeA.Value(),
@@ -78,21 +90,41 @@ func main() {
 	// Simulate some work and increment counters and gauge
 	infoLogger.Println("Starting metrics emission...")
 	for {
+		// Update static counters
 		counterA.Add(rand.Int63n(100))
 		counterB.Add(rand.Int63n(50))
+
+		// Update dynamic counter with various label combinations
+		httpRequests.Inc("200", "GET")
+		httpRequests.Inc("200", "POST")
+		httpRequests.Add(rand.Int63n(10), "404", "GET")
+		httpRequests.Add(rand.Int63n(5), "500", "GET")
 
 		infoLogger.Printf("Updated counters: %s=%d, %s=%d\n",
 			counterA.Name, counterA.Value(),
 			counterB.Name, counterB.Value(),
 		)
 
-		// Update distributions with random values
+		// Update static distributions with random values
 		for range 100_000 {
 			go func() {
 				distributionA.Update(rand.Int63n(100))
 			}()
 			go func() {
 				distributionB.Update(rand.Int63n(250))
+			}()
+		}
+
+		// Update dynamic distribution with different endpoints
+		for range 1000 {
+			go func() {
+				requestLatency.Update(rand.Int63n(500), "/api/users", "GET")
+			}()
+			go func() {
+				requestLatency.Update(rand.Int63n(200), "/api/posts", "GET")
+			}()
+			go func() {
+				requestLatency.Update(rand.Int63n(1000), "/api/users", "POST")
 			}()
 		}
 
