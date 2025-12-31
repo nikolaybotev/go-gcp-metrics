@@ -66,7 +66,9 @@ func NewGcpMetricsEmitter(
 func (me *GcpMetricsEmitter) mergeLabels(specific map[string]string) map[string]string {
 	labels := make(map[string]string, len(me.CommonLabels)+len(specific))
 	maps.Copy(labels, me.CommonLabels)
-	maps.Copy(labels, specific)
+	if specific != nil {
+		maps.Copy(labels, specific)
+	}
 	return labels
 }
 
